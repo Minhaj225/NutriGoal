@@ -13,7 +13,7 @@ A comprehensive full-stack AI-powered meal recommendation platform that provides
 │ • Tailwind CSS  │    │ • Mongoose      │    │ • pandas        │
 │ • daisyUI       │    │ • CORS          │    │ • numpy         │
 │                 │    │                 │    │                 │
-│ Vercel          │    │ Vercel          │    │ Railway         │
+│ Vercel          │    │ Vercel          │    │ Vercel         │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -111,8 +111,7 @@ meal-recommender-ai/
 
 ### Deployment & DevOps
 
-- **Vercel**: Frontend and backend hosting with automatic deployments
-- **Railway**: ML service hosting with Docker containerization
+- **Vercel**: Frontend, ML and backend hosting with automatic deployments
 - **MongoDB Atlas**: Managed database service
 - **Git**: Version control with GitHub integration
 
