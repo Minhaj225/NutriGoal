@@ -1,9 +1,15 @@
 {
-  "functions": {
+ "functions": {
     "api/api.py": {
-      "runtime": "python@3.11"
+      "runtime": "python@3.9"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/api.py"
+    }
+  ]
 }
 
 
