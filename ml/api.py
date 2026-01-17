@@ -9,6 +9,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
+DATASET_PATH = os.path.join(BASE_DIR, "indian_food_nutrition_dataset.csv")
+
 model = None
 feature_columns = []
 model_accuracy = 0.0
@@ -18,8 +22,8 @@ def load_or_create_model():
     global model, feature_columns, model_accuracy
     
     try:
-        if os.path.exists('model.pkl'):
-            with open('model.pkl', 'rb') as f:
+        if os.path.exists(MODEL_PATH):
+            with open(MODEL_PATH, 'rb') as f:
                 model_data = pickle.load(f)
             model = model_data['model']
             feature_columns = model_data['features']
@@ -44,12 +48,12 @@ def create_model_from_dataset():
     global model, feature_columns, model_accuracy
     
     try:
-        if not os.path.exists('indian_food_nutrition_dataset.csv'):
+        if not os.path.exists(DATASET_PATH):
             print("Dataset not found, creating dummy model...")
             create_dummy_model()
             return
             
-        df = pd.read_csv('indian_food_nutrition_dataset.csv')
+        df = pd.read_csv(DATASET_PATH)
         print(f"Loaded dataset with {len(df)} rows")
         
         df_clean = df.dropna()
@@ -88,7 +92,7 @@ def create_model_from_dataset():
             'features': feature_columns,
             'accuracy': model_accuracy
         }
-        with open('model.pkl', 'wb') as f:
+        with open(MODEL_PATH, 'wb') as f:
             pickle.dump(model_data, f)
         print("Model saved successfully")
         
