@@ -119,7 +119,11 @@ def create_dummy_model():
     
     print("Dummy model created successfully")
 
-load_or_create_model()
+def ensure_model_loaded():
+    global model
+    if model is None:
+        load_or_create_model()
+
 
 app = Flask(__name__)
 CORS(app)
@@ -127,6 +131,7 @@ CORS(app)
 @app.route('/')
 def index():
     try:
+        ensure_model_loaded()
         return jsonify({
             "message": "Enhanced Meal Recommendation ML API is running.",
             "model_accuracy": f"{model_accuracy:.3f}" if model_accuracy else "N/A",
@@ -150,6 +155,7 @@ def index():
 
 @app.route('/features', methods=['GET'])
 def get_features():
+    ensure_model_loaded()
     """Get information about model features"""
     return jsonify({
         "features": feature_columns,
@@ -172,6 +178,7 @@ def predict():
     }
     """
     try:
+        ensure_model_loaded()
         data = request.get_json()
         
         required_fields = ['calories', 'protein', 'cuisine', 'category', 'diet']
@@ -216,6 +223,7 @@ def predict_batch():
     }
     """
     try:
+        ensure_model_loaded()
         data = request.get_json()
         meals = data.get('meals', [])
 
@@ -301,6 +309,7 @@ def create_feature_vector(meal_data):
 def health_check():
     """Health check endpoint"""
     try:
+        ensure_model_loaded()
         return jsonify({
             "status": "healthy",
             "model_loaded": model is not None,
