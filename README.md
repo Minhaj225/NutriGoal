@@ -18,10 +18,9 @@ A comprehensive full-stack AI-powered meal recommendation platform that provides
 ```
 
 ## Live Deployment
- Note: The backend is down and live deployed version does not work properly , run on localhost to use the web-app.
-- **Frontend**: [https://meal-recommender-nine.vercel.app](https://meal-recommender-nine.vercel.app)
-- **Backend API**: [https://meal-recommender-backend.vercel.app](https://meal-recommender-backend.vercel.app)
-- **ML API**: [https://mealrecommender-production.up.railway.app](https://mealrecommender-production.up.railway.app)
+- **Frontend**: [https://nutrigoalfrontend.vercel.app](https://nutrigoalfrontend.vercel.app)
+- **Backend API**: [https://mealtest-backend.vercel.app](https://mealtest-backend.vercel.app)
+- **ML API**: [https://meal-recommender-ml.vercel.app](https://meal-recommender-ml.vercel.app)
 - **Database**: MongoDB Atlas (ClusterMeal)
 
 ## Project Structure
@@ -71,10 +70,6 @@ meal-recommender-ai/
 │   ├── 📄 create_model.py         # Model training script
 │   ├── 📄 indian_food_nutrition_dataset.csv # Training data
 │   ├── � requirements.txt        # Python dependencies
-│   ├── 📄 railway.toml            # Railway deployment config
-│   ├── 📄 nixpacks.toml           # Nixpacks build config
-│   ├── 📄 run.py                  # Railway startup script
-│   └── 📄 Procfile                # Process definition
 ├── 📄 vercel.json                 # Root Vercel config
 └── 📄 .gitignore                  # Git ignore patterns
 ```
@@ -158,7 +153,7 @@ meal-recommender-ai/
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/Minhaj225/Meal_Recommender.git
+git clone https://github.com/Minhaj225/NutriGoal.git
 cd meal-recommender-ai
 ```
 
@@ -281,14 +276,6 @@ npm run dev          # Frontend (port 5173)
 python api.py        # ML service (port 5000)
 ```
 
-### Docker Deployment (Alternative)
-
-```bash
-# Build and run ML service container
-cd ml
-docker build -t meal-recommender-ml .
-docker run -p 5000:5000 meal-recommender-ml
-```
 
 ## Testing
 
@@ -306,16 +293,10 @@ docker run -p 5000:5000 meal-recommender-ml
 
 ```bash
 # Test backend health
-curl https://meal-recommender-backend.vercel.app/api/health
+curl https://mealtest-backend.vercel.app/api/health
 
 # Test ML service
-curl https://mealrecommender-production.up.railway.app/health
-
-# Test recommendations
-curl -X POST https://mealrecommender-production.up.railway.app/predict \
-  -H "Content-Type: application/json" \
-  -d '{"calories": 300, "protein": 15, "cuisine": "North Indian", "category": "Main Dish", "diet": "Vegetarian"}'
-```
+https://meal-recommender-ml.vercel.app/api/health
 
 ## Performance & Monitoring
 
@@ -370,7 +351,7 @@ See the [LICENSE](LICENSE) file for full details.
 For questions, issues, or contributions:
 
 - Email: [minhajps25@gmail.com](mailto:minhajps25@gmail.com)
-- Issues: [GitHub Issues](https://github.com/Minhaj225/Meal_Recommender/issues)
+- Issues: [GitHub Issues](https://github.com/Minhaj225/NutriGoal/issues)
 - LinkedIn: [minhajps](https://www.linkedin.com/in/minhajps/)
 
 ---
