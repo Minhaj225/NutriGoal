@@ -10,10 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Check if a pre-trained model exists in the repo (Read-Only)
-REPO_MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
-# Path to save/load model in writable storage (for runtime creation)
-WRITABLE_MODEL_PATH = os.path.join("/tmp", "model.pkl")
+MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 DATASET_PATH = os.path.join(BASE_DIR, "indian_food_nutrition_dataset.csv")
 
 model = None
@@ -25,20 +22,8 @@ def load_or_create_model():
     global model, feature_columns, model_accuracy
     
     try:
-        # 1. Try loading pre-trained model from repo
-        if os.path.exists(REPO_MODEL_PATH):
-            load_path = REPO_MODEL_PATH
-            print(f"Loading model from repo: {load_path}")
-        # 2. Try loading cached model from /tmp
-        elif os.path.exists(WRITABLE_MODEL_PATH):
-            load_path = WRITABLE_MODEL_PATH
-            print(f"Loading model from tmp: {load_path}")
-        else:
-            load_path = None
-
-        if load_path:
-            with open(load_path, 'rb') as f:
-
+        if os.path.exists(MODEL_PATH):
+            with open(MODEL_PATH, 'rb') as f:
                 model_data = pickle.load(f)
             model = model_data['model']
             feature_columns = model_data['features']
@@ -107,7 +92,7 @@ def create_model_from_dataset():
             'features': feature_columns,
             'accuracy': model_accuracy
         }
-        with open(WRITABLE_MODEL_PATH, 'wb') as f:
+        with open(MODEL_PATH, 'wb') as f:
             pickle.dump(model_data, f)
         print("Model saved successfully")
         
