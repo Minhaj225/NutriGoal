@@ -1,358 +1,300 @@
-# AI Meal Recommender System
+# NutriGoal - AI Meal Recommender System
 
-A comprehensive full-stack AI-powered meal recommendation platform that provides personalized nutrition suggestions using machine learning algorithms. The system includes a React frontend, Node.js backend, and Python ML service, all deployed on modern cloud platforms.
+NutriGoal is a full-stack meal recommendation platform with a React frontend, an Express + MongoDB backend, and a Flask-based ML service.
+
+It provides profile-driven recommendations, nutrition-aware filtering, meal rating/feedback, and admin meal management.
 
 ## System Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  Node.js Backend │    │   Python ML API │
-│                 │    │                 │    │                 │
-│ • React 18      │◄──►│ • Express.js    │◄──►│ • Flask         │
-│ • Vite          │    │ • MongoDB       │    │ • scikit-learn  │
-│ • Tailwind CSS  │    │ • Mongoose      │    │ • pandas        │
-│ • daisyUI       │    │ • CORS          │    │ • numpy         │
-│                 │    │                 │    │                 │
-│ Vercel          │    │ Vercel          │    │ Vercel         │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+Frontend (React + Vite)
+       |
+       | HTTP (Axios)
+       v
+Backend API (Express + MongoDB)
+       |
+       | HTTP
+       v
+ML API (Flask + scikit-learn)
 ```
 
-## Live Deployment
-- **Frontend**: [https://nutrigoalfrontend.vercel.app](https://nutrigoalfrontend.vercel.app)
-- **Backend API**: [https://mealtest-backend.vercel.app](https://mealtest-backend.vercel.app)
-- **ML API**: [https://meal-recommender-ml.vercel.app](https://meal-recommender-ml.vercel.app)
-- **Database**: MongoDB Atlas (ClusterMeal)
-
-## Project Structure
+## Project Structure (Current)
 
 ```
-meal-recommender-ai/
-├── 📁 backend/                    # Node.js Express API
-│   ├── 📄 app.js                  # Main application file
-│   ├── 📁 models/                 # Mongoose schemas
-│   │   ├── 📄 Student.js          # User profile model
-│   │   └── 📄 Meal.js             # Meal data model
-│   ├── 📁 routes/                 # API route definitions
-│   │   ├── 📄 studentRoutes.js    # Student management
-│   │   └── 📄 mealRoutes.js       # Meal CRUD & recommendations
-│   ├── 📁 scripts/                # Utility scripts
-│   │   └── 📄 seedMeals.js        # Database seeding
-│   ├── 📄 package.json            # Backend dependencies
-│   ├── 📄 vercel.json             # Vercel deployment config
-│   └── 📄 .env.example            # Environment template
-├── 📁 frontend/             # React SPA
-│   ├── 📁 src/
-│   │   ├── 📄 App.jsx             # Main app with routing
-│   │   ├── 📄 main.jsx            # Application entry point
-│   │   ├── 📁 components/         # Reusable components
-│   │   │   ├── 📁 common/         # Shared UI components
-│   │   │   │   ├── 📄 Navigation.jsx
-│   │   │   │   ├── 📄 LoadingSpinner.jsx
-│   │   │   │   └── 📄 ErrorMessage.jsx
-│   │   │   └── 📁 meals/          # Meal-specific components
-│   │   │       └── 📄 MealCard.jsx
-│   │   ├── 📁 pages/              # Route components
-│   │   │   ├── 📄 Home.jsx        # Landing page
-│   │   │   ├── 📄 StudentForm.jsx # Profile management
-│   │   │   ├── 📄 Recommendations.jsx # AI recommendations
-│   │   │   ├── 📄 BrowseMeals.jsx # Meal browsing
-│   │   │   ├── 📄 AdminLogin.jsx  # Admin authentication
-│   │   │   └── � AdminMealForm.jsx # Admin meal management
-│   │   └── 📁 services/           # API integration
-│   │       └── 📄 api.js          # Centralized API calls
-│   ├── 📄 package.json            # Frontend dependencies
-│   ├── 📄 vercel.json             # Vercel deployment config
-│   ├── 📄 vite.config.js          # Vite configuration
-│   └── 📄 tailwind.config.js      # Tailwind CSS config
-├── 📁 ml/                         # Python ML Service
-│   ├── 📄 api.py                  # Flask API server
-│   ├── 📄 recommend.py            # ML recommendation logic
-│   ├── 📄 create_model.py         # Model training script
-│   ├── 📄 indian_food_nutrition_dataset.csv # Training data
-│   ├── � requirements.txt        # Python dependencies
-├── 📄 vercel.json                 # Root Vercel config
-└── 📄 .gitignore                  # Git ignore patterns
+NutriGoal/
+├── LICENSE
+├── QUICK_Start.md
+├── README.md
+├── backend/
+│   ├── app.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── vercel.json
+│   ├── models/
+│   │   ├── Meal.js
+│   │   └── Student.js
+│   ├── routes/
+│   │   ├── mealRoutes.js
+│   │   └── studentRoutes.js
+│   └── scripts/
+│       └── seedMeals.js
+├── frontend/
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── eslint.config.js
+│   ├── tailwind.config.js
+│   ├── vite.config.js
+│   ├── vercel.json
+│   └── src/
+│       ├── App.jsx
+│       ├── main.jsx
+│       ├── index.css
+│       ├── components/
+│       │   ├── common/
+│       │   │   ├── ErrorMessage.jsx
+│       │   │   ├── LoadingSpinner.jsx
+│       │   │   ├── Navigation.jsx
+│       │   │   └── icons/
+│       │   │       ├── admin.png
+│       │   │       ├── nav-logo.png
+│       │   │       └── user.png
+│       │   ├── extra/
+│       │   │   └── TextType.jsx
+│       │   └── meals/
+│       │       └── MealCard.jsx
+│       ├── pages/
+│       │   ├── Home.jsx
+│       │   ├── StudentForm.jsx
+│       │   ├── Recommendations.jsx
+│       │   ├── BrowseMeals.jsx
+│       │   ├── AdminLogin.jsx
+│       │   ├── AdminMealForm.jsx
+│       │   └── DotGrid.jsx
+│       └── services/
+│           └── api.js
+└── ml/
+    ├── API_GUIDE.md
+    ├── requirements.txt
+    ├── test_api.py
+    ├── vercel.json
+    └── api/
+		├── app.py
+		├── indian_food_nutrition_dataset.csv
+		└── model.pkl
 ```
 
 ## Technology Stack
 
-### Frontend (React)
+### Frontend
 
-- **React 18**: Modern React with hooks and functional components
-- **Vite**: Lightning-fast build tool and dev server
-- **React Router**: Client-side routing with protected routes
-- **Axios**: HTTP client with interceptors for API calls
-- **Tailwind CSS**: Utility-first CSS framework
-- **daisyUI**: Component library built on Tailwind
-- **ESLint**: Code linting and formatting
+- React 19
+- Vite 7
+- React Router DOM 7
+- Tailwind CSS 4 + daisyUI
+- Axios
+- MUI
 
-### Backend (Node.js)
+### Backend
 
-- **Express.js**: Web application framework
-- **MongoDB**: NoSQL database with Atlas cloud hosting
-- **Mongoose**: ODM for MongoDB with schema validation
-- **CORS**: Cross-origin resource sharing middleware
-- **dotenv**: Environment variable management
-- **Axios**: HTTP client for ML API integration
+- Node.js + Express
+- MongoDB + Mongoose
+- Axios (ML API integration)
+- CORS + dotenv
 
-### ML Service (Python)
+### ML Service
 
-- **Flask**: Lightweight web framework
-- **scikit-learn**: Machine learning library
-- **pandas**: Data manipulation and analysis
-- **numpy**: Numerical computing library
-- **gunicorn**: WSGI HTTP server for production
+- Python + Flask
+- scikit-learn
+- pandas
+- numpy
+- gunicorn
 
-### Database Schema
+## Features Implemented
 
-- **Students Collection**: User profiles with preferences and nutrition goals
-- **Meals Collection**: Comprehensive meal data with nutrition information
-- **Indexes**: Optimized queries for email and meal searches
-
-### Deployment & DevOps
-
-- **Vercel**: Frontend, ML and backend hosting with automatic deployments
-- **MongoDB Atlas**: Managed database service
-- **Git**: Version control with GitHub integration
-
-## Features
-
-### Core Functionality
-
-- ** AI-Powered Recommendations**: Machine learning-based meal suggestions
-- ** User Profiles**: Comprehensive preference and nutrition goal management
-- ** Advanced Search**: Filter meals by cuisine, category, nutrition, and dietary preferences
-- ** Rating System**: User feedback to improve recommendation accuracy
-- ** Nutrition Tracking**: Detailed nutritional information and goal monitoring
-
-### Admin Features
-
-- ** Admin Authentication**: Secure admin panel access
-- ** Meal Management**: Complete CRUD operations for meals
-- ** Analytics**: System statistics and user engagement metrics
-- ** Bulk Import**: CSV-based meal data import functionality
-
-### UI/UX Features
-
-- ** Responsive Design**: Mobile-first approach with adaptive layouts
-- ** Theme Support**: Multiple color schemes via daisyUI
-- ** Fast Loading**: Optimized with lazy loading and code splitting
-- ** Real-time Updates**: Live data synchronization across components
-- ** Error Handling**: Comprehensive error boundaries and user feedback
+- Student profile create/update and retrieval by email
+- Meal browse with filters (cuisine, category, diet, calories, protein)
+- Personalized recommendations via backend + ML batch prediction
+- Fallback recommendations when ML service is unavailable
+- Meal rating and student feedback tracking
+- Admin meal CRUD and CSV-based bulk import support
+- Basic admin gate in frontend (`localStorage` demo login)
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js** 16+ with npm/yarn
-- **Python** 3.8+ with pip
-- **MongoDB** Atlas account or local installation
-- **Git** for version control
+- Node.js 16+
+- npm 8+
+- Python 3.8+
+- MongoDB Atlas or local MongoDB
 
-### 1. Clone and Setup
+### 1) Clone
 
 ```bash
 git clone https://github.com/Minhaj225/NutriGoal.git
-cd meal-recommender-ai
+cd NutriGoal
 ```
 
-### 2. Backend Setup
+### 2) Install Dependencies
+
+```bash
+# backend
+cd backend && npm install
+
+# frontend
+cd ../frontend && npm install
+
+# ml
+cd ../ml && pip install -r requirements.txt
+```
+
+### 3) Configure Environment
+
+Backend:
 
 ```bash
 cd backend
-npm install
 cp .env.example .env
-# Edit .env with your MongoDB URI and configuration
+```
+
+Frontend:
+
+```bash
+cd ../frontend
+cp .env.example .env.local
+```
+
+Set values as needed in `.env` and `.env.local`.
+
+### 4) Run Locally (3 terminals)
+
+Terminal 1 - backend:
+
+```bash
+cd backend
 npm run dev
 ```
 
-### 3. Frontend Setup
+Terminal 2 - frontend:
 
 ```bash
 cd frontend
-npm install
-cp .env.example .env.local
-# Edit .env.local with your API URLs
 npm run dev
 ```
 
-### 4. ML Service Setup
+Terminal 3 - ML API:
 
 ```bash
-cd ml
-pip install -r requirements.txt
-python create_model.py  # Generate initial ML model
-python api.py
+cd ml/api
+python app.py
 ```
 
-### 5. Database Seeding
+### 5) Seed Meals (optional)
 
 ```bash
 cd backend
-npm run seed  # Populate database with sample meals
+npm run seed
 ```
 
-## 📡 API Documentation
+## API Documentation (Current)
 
-### Backend API Endpoints
+### Backend Base URL
 
-#### Student Management
+- Local: `http://localhost:5001`
 
-- `GET /api/students/:email` - Get student profile
-- `POST /api/students` - Create new student profile
-- `PUT /api/students/:email` - Update student profile
-- `DELETE /api/students/:email` - Delete student profile
+### System
 
-#### Meal Management
+- `GET /` - Backend root info
+- `GET /api` - API metadata
+- `GET /api/health` - Health check
 
-- `GET /api/meals` - Get all meals with filtering
-- `GET /api/meals/:id` - Get specific meal
-- `POST /api/meals` - Create new meal (admin)
-- `PUT /api/meals/:id` - Update meal (admin)
-- `DELETE /api/meals/:id` - Delete meal (admin)
+### Students
 
-#### Recommendations
+- `POST /api/students` - Create or update student profile
+- `GET /api/students` - List students (admin view)
+- `GET /api/students/:email` - Fetch student profile
+- `POST /api/students/:email/feedback` - Save meal feedback
+- `DELETE /api/students/:email` - Delete profile
 
-- `GET /api/meals/recommendations/:email` - Get personalized recommendations
-- `POST /api/meals/batch-import` - Bulk import meals (admin)
+### Meals
 
-#### System
+- `POST /api/meals` - Create meal
+- `GET /api/meals` - List meals (supports filters)
+- `GET /api/meals/:id` - Get meal by id
+- `GET /api/meals/recommend/:email` - Personalized recommendations
+- `POST /api/meals/:id/rate` - Rate meal
+- `PUT /api/meals/:id` - Update meal
+- `DELETE /api/meals/:id` - Soft-delete meal (`isActive: false`)
+- `POST /api/meals/bulk-import` - Bulk import meals
 
-- `GET /api/health` - Health check with database status
-- `GET /api` - API information and available endpoints
+### ML API Base URL
 
-### ML API Endpoints
+- Local: `http://localhost:5000`
 
-#### Predictions
+### ML Endpoints
 
-- `POST /predict` - Single meal recommendation
-- `POST /predict_batch` - Batch meal predictions
+- `GET /` - ML service metadata
+- `GET /features` - Model feature details
+- `GET /health` - ML health check
+- `POST /predict` - Single prediction
+- `POST /predict_batch` - Batch prediction
 
-#### Model Information
+## Environment Variables
 
-- `GET /features` - Model feature information
-- `GET /health` - ML service health check
-- `GET /` - API information and model statistics
-
-## Environment Configuration
-
-### Backend (.env)
+### backend/.env
 
 ```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/database
-NODE_ENV=production
+MONGO_URI=mongodb://localhost:27017/meal-recommender
 PORT=5001
-FRONTEND_URL=https://your-frontend-domain.com
-ML_API_URL=https://your-ml-api-domain.com
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+ML_API_URL=http://localhost:5000
 ```
 
-### Frontend (.env.local)
+### frontend/.env.local
 
 ```env
-VITE_API_URL=https://your-backend-domain.com/api
-VITE_ML_API_URL=https://your-ml-api-domain.com
+VITE_API_URL=http://localhost:5001/api
+VITE_ML_API_URL=http://localhost:5000
 VITE_APP_NAME=AI Meal Recommender
 VITE_APP_VERSION=2.0.0
 VITE_ENABLE_ML_PREDICTIONS=true
 VITE_ENABLE_ADMIN_FEATURES=true
 ```
 
-## Deployment
-
-### Production Deployment (Current)
-
-- **Frontend**: Deployed on Vercel with automatic GitHub integration
-- **Backend**: Deployed on Vercel with environment variables configured
-- **ML Service**: Deployed on Railway with automatic scaling
-- **Database**: MongoDB Atlas with production-grade security
-
-### Local Development
-
-```bash
-# Start all services
-npm run dev          # Backend (port 5001)
-npm run dev          # Frontend (port 5173)
-python api.py        # ML service (port 5000)
-```
-
-
 ## Testing
 
-### Manual Testing Checklist
-
-- [ ] Frontend loads without errors
-- [ ] User registration and profile creation
-- [ ] Meal browsing and filtering
-- [ ] AI recommendation generation
-- [ ] Admin panel functionality
-- [ ] Mobile responsiveness
-- [ ] Cross-browser compatibility
-
-### API Testing
+ML API test script:
 
 ```bash
-# Test backend health
-curl https://mealtest-backend.vercel.app/api/health
+cd ml
+python test_api.py
+```
 
-# Test ML service
-https://meal-recommender-ml.vercel.app/api/health
+Health checks:
 
-## Performance & Monitoring
+```bash
+curl http://localhost:5001/api/health
+curl http://localhost:5000/health
+```
 
-### Current Metrics
+## Notes
 
-- **Frontend**: ~2s load time, 95+ Lighthouse score
-- **Backend**: ~200ms average response time
-- **ML API**: ~500ms prediction time
-- **Database**: Sub-100ms query response
-
-### Monitoring Setup
-
-- **Vercel Analytics**: Frontend performance and user metrics
-- **Railway Metrics**: ML service uptime and resource usage
-- **MongoDB Atlas**: Database performance and connection monitoring
-
-## Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
-### Code Standards
-
-- **Frontend**: ESLint with React best practices
-- **Backend**: Node.js conventions with async/await
-- **ML**: PEP 8 Python style guide
-- **Documentation**: Clear comments and README updates
+- The frontend service layer contains helper methods for endpoints such as `/meals/search`, `/students/:email/history`, and `/students/:email/preferences`; these are not currently implemented in backend routes.
+- Admin login is currently a demo client-side credential check (`admin/admin123`) in the frontend.
 
 ## License
 
-This project is licensed for **personal and educational use only**.
+This project is licensed for personal and educational use only.
 
-**Commercial use is strictly prohibited** without prior written permission from the author.  
+Commercial use is strictly prohibited without prior written permission from the author.
 See the [LICENSE](LICENSE) file for full details.
 
-© Muhammed Minhaj 2025. All rights reserved.
-
-## Team
-
-- **Frontend Development**: React + Vite + Tailwind CSS
-- **Backend Development**: Node.js + Express + MongoDB
-- **ML Engineering**: Python + Flask + scikit-learn
-- **DevOps**: Vercel + Railway + MongoDB Atlas
+Copyright (c) Muhammed Minhaj 2025. All rights reserved.
 
 ## Support
-
-For questions, issues, or contributions:
 
 - Email: [minhajps25@gmail.com](mailto:minhajps25@gmail.com)
 - Issues: [GitHub Issues](https://github.com/Minhaj225/NutriGoal/issues)
 - LinkedIn: [minhajps](https://www.linkedin.com/in/minhajps/)
-
----
-
-**Built using React, Node.js, Python, and AI/ML technologies**
