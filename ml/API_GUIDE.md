@@ -271,11 +271,10 @@ const getMLRecommendations = async (meals) => {
 cd ml
 pip install -r requirements.txt
 
-# 2. Generate model (if not exists)
-python create_model.py
+cd api
 
-# 3. Start API server
-python api.py
+# 2. Start API server
+python app.py
 # Server runs on http://localhost:5000
 ```
 
@@ -365,7 +364,7 @@ curl https://mealrecommender-production.up.railway.app/features
 ## 📚 Related Documentation
 - **Main README**: [Project Overview](../README.md)
 - **Backend API**: [Backend Routes](../backend/README.md)  
-- **Frontend Integration**: [React Service Layer](../react-frontend/src/services/api.js)
+- **Frontend Integration**: [React Service Layer](../frontend/src/services/api.js)
 - **Dataset Info**: [Training Data](./indian_food_nutrition_dataset.csv)
 
 ## 📞 Support & Monitoring

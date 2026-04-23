@@ -12,6 +12,11 @@ const MealCard = ({
   const [rating, setRating] = useState(0);
   const [isRating, setIsRating] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const servingSizeLabel = meal.servingSize?.trim() || "1 serving";
+  const gramsMatch = servingSizeLabel.match(/\((\d+(?:\.\d+)?)\s*g\)/i);
+  const proteinContext = gramsMatch
+    ? `per ${gramsMatch[1]}g`
+    : `per ${servingSizeLabel}`;
 
   const handleRating = async (newRating) => {
     if (!userEmail) {
@@ -71,6 +76,10 @@ const MealCard = ({
           <span className="badge badge-outline">{meal.category}</span>
         </div>
 
+        <div className="mt-3 text-sm text-gray-300">
+          <span className="font-semibold">Quantity:</span> {servingSizeLabel}
+        </div>
+
         <div className="grid grid-cols-2 gap-4 mt-3">
           <div className="stat">
             <div className="stat-title text-sm">Calories</div>
@@ -79,6 +88,9 @@ const MealCard = ({
           <div className="stat">
             <div className="stat-title text-sm">Protein</div>
             <div className="stat-value text-sm">{meal.protein} g</div>
+            <div className="stat-desc text-xs text-gray-400">
+              {proteinContext}
+            </div>
           </div>
         </div>
 

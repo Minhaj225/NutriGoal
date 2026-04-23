@@ -40,7 +40,7 @@ meal-recommender-ai/
 │   ├── 📄 package.json            # Backend dependencies
 │   ├── 📄 vercel.json             # Vercel deployment config
 │   └── 📄 .env.example            # Environment template
-├── 📁 react-frontend/             # React SPA
+├── 📁 frontend/             # React SPA
 │   ├── 📁 src/
 │   │   ├── 📄 App.jsx             # Main app with routing
 │   │   ├── 📄 main.jsx            # Application entry point
@@ -169,7 +169,7 @@ npm run dev
 ### 3. Frontend Setup
 
 ```bash
-cd react-frontend
+cd frontend
 npm install
 cp .env.example .env.local
 # Edit .env.local with your API URLs
