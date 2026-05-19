@@ -69,9 +69,6 @@ const BrowseMeals = () => {
 
         // Apply sorting
         switch (sortBy) {
-
-        // Apply sorting
-        switch (sortBy) {
           case "rating":
             sortedMeals.sort(
               (a, b) => (b.averageRating || 0) - (a.averageRating || 0)
