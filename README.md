@@ -194,12 +194,17 @@ cd ml/api
 python app.py
 ```
 
-### 5) Seed Meals (optional)
-
+### 5) Seed Meals & Setup Admin (optional)
+ 
 ```bash
 cd backend
+# Seed initial meals
 npm run seed
+
+# Create an admin account for the dashboard
+npm run create-admin
 ```
+
 
 ## API Documentation (Current)
 

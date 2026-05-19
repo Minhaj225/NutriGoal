@@ -40,10 +40,12 @@ const AdminLogin = () => {
     setError("");
 
     try {
-      // Simple hardcoded admin check (in production, this would be a proper API call)
-      if (username === "admin" && password === "admin123") {
+      const response = await systemAPI.login(username, password);
+      
+      if (response.success) {
+        localStorage.setItem("token", response.token);
         localStorage.setItem("isAdmin", "true");
-        localStorage.setItem("adminUser", username);
+        localStorage.setItem("adminUser", response.username);
         
         // Dispatch custom event for other components to listen
         window.dispatchEvent(new Event('adminLoginChange'));
@@ -51,14 +53,14 @@ const AdminLogin = () => {
         // Navigate with replace to avoid going back to login
         navigate("/admin/meals", { replace: true });
       } else {
-        setError("Invalid credentials. Use admin/admin123 for demo.");
+        setError("Invalid credentials.");
       }
     } catch (err) {
-      setError("Login failed. Please try again.");
+      setError(err.message || "Login failed. Please try again.");
       console.error('Login error:', err);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const handleLogout = () => {

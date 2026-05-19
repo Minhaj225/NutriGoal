@@ -44,6 +44,9 @@ const AdminMealForm = () => {
   const dietOptions = ["Vegetarian", "Non-Vegetarian"];
 
   useEffect(() => {
+    if (localStorage.getItem("token") !== "true" && !localStorage.getItem("token")) {
+       // Optional: check token validity or just redirect if missing
+    }
     loadMeals();
     loadMLFeatures();
   }, []);

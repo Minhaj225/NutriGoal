@@ -23,10 +23,11 @@ const Home = () => {
       setLoading(true);
       setError(null);
 
-      // Get API info and health check
-      const [apiInfoData, healthData] = await Promise.all([
+      // Get API info, health check, and stats
+      const [apiInfoData, healthData, statsResponse] = await Promise.all([
         systemAPI.getApiInfo(),
         systemAPI.healthCheck(),
+        mealAPI.getStats(),
       ]);
 
       setApiInfo(apiInfoData);
@@ -51,27 +52,30 @@ const Home = () => {
 
       setFeaturedMeals(featured);
 
-      // Calculate stats
-      const cuisineStats = {};
-      const categoryStats = {};
-      meals.forEach((meal) => {
-        cuisineStats[meal.cuisine] = (cuisineStats[meal.cuisine] || 0) + 1;
-        categoryStats[meal.category] = (categoryStats[meal.category] || 0) + 1;
-      });
-
-      setStats({
-        totalMeals: meals.length,
-        healthySystem: healthData.status === "healthy",
-        cuisineCount: Object.keys(cuisineStats).length,
-        categoryCount: Object.keys(categoryStats).length,
-        topCuisine:
-          Object.entries(cuisineStats).sort(([, a], [, b]) => b - a)[0]?.[0] ||
-          "N/A",
-        averageRating:
-          meals.reduce((sum, meal) => sum + (meal.averageRating || 0), 0) /
-            meals.length || 0,
-      });
+      // Set stats from the dedicated stats endpoint
+      if (statsResponse.success) {
+        const { stats } = statsResponse;
+        setStats({
+          totalMeals: stats.totalMeals,
+          healthySystem: healthData.status === "healthy",
+          cuisineCount: stats.cuisineCount,
+          categoryCount: stats.categoryCount,
+          topCuisine: stats.topCuisine,
+          averageRating: stats.averageRating,
+        });
+      } else {
+        // Fallback to local calculation if stats API fails
+        setStats({
+          totalMeals: mealsResponse.total || meals.length,
+          healthySystem: healthData.status === "healthy",
+          cuisineCount: 0,
+          categoryCount: 0,
+          topCuisine: "N/A",
+          averageRating: 0,
+        });
+      }
     } catch (err) {
+
       console.error("Error loading home data:", err);
       setError("Failed to load application data. Please try again.");
     } finally {

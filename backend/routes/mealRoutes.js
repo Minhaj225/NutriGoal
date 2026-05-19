@@ -7,6 +7,47 @@ const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
 
 const ML_API_URL = process.env.ML_API_URL || "http://localhost:5000";
 
+// Get meal statistics for home page
+router.get("/stats", async (req, res) => {
+  try {
+    const stats = await Meal.aggregate([
+      { $match: { isActive: true } },
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          cuisines: [{ $group: { _id: "$cuisine" } }],
+          categories: [{ $group: { _id: "$category" } }],
+          avgRating: [{ $group: { _id: null, avg: { $avg: "$averageRating" } } }],
+          topCuisine: [
+            { $group: { _id: "$cuisine", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 1 }
+          ],
+        },
+      },
+    ]);
+
+    const total = stats[0].total[0]?.count || 0;
+    const cuisineCount = stats[0].cuisines.length;
+    const categoryCount = stats[0].categories.length;
+    const averageRating = stats[0].avgRating[0]?.avg || 0;
+    const topCuisine = stats[0].topCuisine[0]?._id || "N/A";
+
+    res.json({
+      success: true,
+      stats: {
+        totalMeals: total,
+        cuisineCount,
+        categoryCount,
+        averageRating,
+        topCuisine,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Create a meal entry
 router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
   try {

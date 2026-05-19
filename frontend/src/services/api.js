@@ -23,12 +23,27 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('isAdmin');
+      window.location.href = '/admin/login';
+    }
     console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
 
-// Enhanced ML API functions (direct calls to ML service)
+// Request interceptor for adding JWT token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+  return config;
+});
+
+// ML API functions (direct calls to ML service)
 export const mlAPI = {
   // Get ML model features
   getFeatures: async () => {
@@ -63,6 +78,12 @@ export const mlAPI = {
 
 // Enhanced meal API functions
 export const mealAPI = {
+  // Get meal stats for home page
+  getStats: async () => {
+    const response = await api.get('/meals/stats');
+    return response.data;
+  },
+
   // Get all meals with filtering
   getMeals: async (filters = {}, page = 1, limit = 20) => {
     const params = new URLSearchParams();
@@ -194,6 +215,11 @@ export const studentAPI = {
 
 // System API functions
 export const systemAPI = {
+  // Login for admin
+  login: async (username, password) => {
+    const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  },
   // Health check
   healthCheck: async () => {
     const response = await api.get('/health');
