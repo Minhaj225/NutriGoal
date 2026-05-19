@@ -160,9 +160,14 @@ mongoose.connection.on('reconnected', () => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🤖 ML API URL: ${process.env.ML_API_URL || 'http://localhost:5000'}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-});
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🤖 ML API URL: ${process.env.ML_API_URL || 'http://localhost:5000'}`);
+    console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  });
+}
+
+module.exports = app;

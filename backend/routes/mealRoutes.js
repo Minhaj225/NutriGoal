@@ -39,7 +39,7 @@ router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
 // Get all meals with filtering
 router.get("/", async (req, res) => {
   try {
-    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein } = req.query;
+    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein, page = 1, limit = 20 } = req.query;
     
     let filter = { isActive: true };
     
@@ -50,11 +50,22 @@ router.get("/", async (req, res) => {
     if (maxCalories) filter.calories = { ...filter.calories, $lte: parseInt(maxCalories) };
     if (minProtein) filter.protein = { $gte: parseInt(minProtein) };
 
-    const meals = await Meal.find(filter).sort({ popularity: -1, averageRating: -1 });
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const total = await Meal.countDocuments(filter);
+    const meals = await Meal.find(filter)
+      .sort({ popularity: -1, averageRating: -1 })
+      .skip(skip)
+      .limit(limitNum);
     
     res.json({
       success: true,
       count: meals.length,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       meals
     });
   } catch (err) {

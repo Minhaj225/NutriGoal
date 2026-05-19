@@ -66,10 +66,22 @@ router.get("/:email", async (req, res) => {
 // Get all students (for admin purposes)
 router.get("/", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
-    const students = await Student.find().select('-mealHistory');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Student.countDocuments();
+    const students = await Student.find()
+      .select('-mealHistory')
+      .skip(skip)
+      .limit(limit);
+
     res.json({
       success: true,
       count: students.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       students
     });
   } catch (err) {
