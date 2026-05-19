@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Student = require("../models/Student");
+const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
 
 // Create or update student profile
 router.post("/", async (req, res) => {
@@ -12,9 +13,18 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
+    // Sanitize input to prevent NoSQL injection
+    const updateData = {};
+    const allowedFields = ['name', 'preferences', 'nutritionGoals', 'allergies', 'activityLevel'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
     const student = await Student.findOneAndUpdate(
       { email }, 
-      req.body, 
+      updateData, 
       { upsert: true, new: true, runValidators: true }
     );
     
@@ -54,7 +64,7 @@ router.get("/:email", async (req, res) => {
 });
 
 // Get all students (for admin purposes)
-router.get("/", async (req, res) => {
+router.get("/", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
     const students = await Student.find().select('-mealHistory');
     res.json({
@@ -111,7 +121,7 @@ router.post("/:email/feedback", async (req, res) => {
 });
 
 // Delete student profile
-router.delete("/:email", async (req, res) => {
+router.delete("/:email", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
     const student = await Student.findOneAndDelete({ email: req.params.email });
     

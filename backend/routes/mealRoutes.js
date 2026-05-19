@@ -3,13 +3,21 @@ const router = express.Router();
 const Meal = require("../models/Meal");
 const Student = require("../models/Student");
 const axios = require("axios");
+const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
 
 const ML_API_URL = process.env.ML_API_URL || "http://localhost:5000";
 
 // Create a meal entry
-router.post("/", async (req, res) => {
+router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
-    const meal = new Meal(req.body);
+    // Sanitize input
+    const mealData = {};
+    const allowedFields = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) mealData[field] = req.body[field];
+    });
+
+    const meal = new Meal(mealData);
     await meal.save();
     
     res.json({
@@ -239,11 +247,18 @@ router.post("/:id/rate", async (req, res) => {
 });
 
 // Update meal
-router.put("/:id", async (req, res) => {
+router.put("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
+    // Sanitize input
+    const updateData = {};
+    const allowedFields = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl', 'isActive'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) updateData[field] = req.body[field];
+    });
+
     const meal = await Meal.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     
@@ -268,7 +283,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Delete meal
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
     const meal = await Meal.findByIdAndUpdate(
       req.params.id,
@@ -290,7 +305,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // Bulk import meals from CSV data
-router.post("/bulk-import", async (req, res) => {
+router.post("/bulk-import", authenticateToken, authorizeAdmin, async (req, res) => {
   try {
     const { meals } = req.body;
     

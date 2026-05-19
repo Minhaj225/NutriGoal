@@ -5,6 +5,8 @@ require("dotenv").config();
 
 const studentRoutes = require("./routes/studentRoutes");
 const mealRoutes = require("./routes/mealRoutes");
+const authRoutes = require("./routes/authRoutes");
+const { authenticateToken, authorizeAdmin } = require("./middleware/auth");
 
 const app = express();
 
@@ -30,6 +32,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/meals", mealRoutes);
 
