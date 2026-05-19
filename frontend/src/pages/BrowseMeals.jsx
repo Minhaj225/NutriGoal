@@ -8,6 +8,8 @@ const BrowseMeals = () => {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState({
     cuisine: "",
     category: "",
@@ -52,17 +54,21 @@ const BrowseMeals = () => {
 
   useEffect(() => {
     fetchMeals();
-  }, [filters, sortBy]);
+  }, [filters, sortBy, page]);
 
   const fetchMeals = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await mealAPI.getMeals(filters);
+      const response = await mealAPI.getMeals(filters, page);
 
       if (response.success) {
         let sortedMeals = [...response.meals];
+        setTotalPages(response.totalPages || 1);
+
+        // Apply sorting
+        switch (sortBy) {
 
         // Apply sorting
         switch (sortBy) {
@@ -96,6 +102,7 @@ const BrowseMeals = () => {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+    setPage(1);
   };
 
   const clearFilters = () => {
@@ -107,6 +114,7 @@ const BrowseMeals = () => {
       maxCalories: "",
       minProtein: "",
     });
+    setPage(1);
   };
 
   const handleRating = (mealId, rating) => {
@@ -260,11 +268,12 @@ const BrowseMeals = () => {
                 </select>
               </div>
 
-              <div className="text-right">
-                <p className="text-sm text-gray-600">
-                  Found {meals.length} meals
-                </p>
-              </div>
+               <div className="text-right">
+                 <p className="text-sm text-gray-600">
+                   Found {meals.length} meals on page {page} of {totalPages}
+                 </p>
+               </div>
+
             </div>
           </div>
         </div>
@@ -315,20 +324,44 @@ const BrowseMeals = () => {
         {/* Loading State */}
         {loading && <LoadingSpinner message="Loading delicious meals..." />}
 
-        {/* Meals Grid */}
-        {!loading && meals.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {meals.map((meal) => (
-              <MealCard
-                key={meal._id}
-                meal={meal}
-                onRate={handleRating}
-                showRating={true}
-                userEmail={userEmail}
-              />
-            ))}
-          </div>
-        )}
+         {/* Meals Grid */}
+         {!loading && meals.length > 0 && (
+           <>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+               {meals.map((meal) => (
+                 <MealCard
+                   key={meal._id}
+                   meal={meal}
+                   onRate={handleRating}
+                   showRating={true}
+                   userEmail={userEmail}
+                 />
+               ))}
+             </div>
+
+             {/* Pagination Controls */}
+             <div className="flex justify-center items-center gap-4 mt-12 mb-8">
+               <button
+                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                 disabled={page === 1}
+                 className="btn btn-outline btn-md"
+               >
+                 Previous
+               </button>
+               <span className="font-medium text-lg">
+                 Page {page} of {totalPages}
+               </span>
+               <button
+                 onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                 disabled={page === totalPages}
+                 className="btn btn-outline btn-md"
+               >
+                 Next
+               </button>
+             </div>
+           </>
+         )}
+
 
         {/* Empty State */}
         {!loading && meals.length === 0 && !error && (

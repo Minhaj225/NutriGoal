@@ -64,13 +64,15 @@ export const mlAPI = {
 // Enhanced meal API functions
 export const mealAPI = {
   // Get all meals with filtering
-  getMeals: async (filters = {}) => {
+  getMeals: async (filters = {}, page = 1, limit = 20) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         params.append(key, value);
       }
     });
+    params.append('page', page);
+    params.append('limit', limit);
     
     const response = await api.get(`/meals?${params}`);
     return response.data;

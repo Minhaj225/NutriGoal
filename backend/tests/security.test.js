@@ -9,9 +9,17 @@ describe('Security API Tests', () => {
   let adminToken;
 
   beforeAll(async () => {
+    // Increase timeout for DB connection
+    jest.setTimeout(30000);
+    
     // Connect to a test database
     const url = process.env.MONGO_URI || 'mongodb://localhost:27017/nutrigoal_test';
-    await mongoose.connect(url);
+    try {
+      await mongoose.connect(url);
+    } catch (err) {
+      console.error('Test DB Connection Error:', err);
+      throw err;
+    }
 
     // Create an admin user
     const admin = new User({
