@@ -96,11 +96,14 @@ NutriGoal/
 - MUI
 
 ### Backend
-
+ 
 - Node.js + Express
 - MongoDB + Mongoose
 - Axios (ML API integration)
 - CORS + dotenv
+- jsonwebtoken + bcryptjs (Auth)
+- express-rate-limit (Security)
+
 
 ### ML Service
 
@@ -113,12 +116,13 @@ NutriGoal/
 ## Features Implemented
 
 - Student profile create/update and retrieval by email
-- Meal browse with filters (cuisine, category, diet, calories, protein)
+- Meal browse with filters (cuisine, category, diet, calories, protein) and pagination
 - Personalized recommendations via backend + ML batch prediction
 - Fallback recommendations when ML service is unavailable
 - Meal rating and student feedback tracking
-- Admin meal CRUD and CSV-based bulk import support
-- Basic admin gate in frontend (`localStorage` demo login)
+- Admin meal CRUD, CSV-based bulk import, and student management
+- Secure JWT-based authentication and RBAC for admin features
+- Global rate limiting and NoSQL injection protection
 
 ## Getting Started
 
@@ -204,29 +208,34 @@ npm run seed
 - Local: `http://localhost:5001`
 
 ### System
-
+ 
 - `GET /` - Backend root info
 - `GET /api` - API metadata
 - `GET /api/health` - Health check
-
+ 
+### Auth
+ 
+- `POST /api/auth/login` - Admin login (returns JWT)
+ 
 ### Students
-
+ 
 - `POST /api/students` - Create or update student profile
-- `GET /api/students` - List students (admin view)
+- `GET /api/students` - List students (admin view, supports pagination)
 - `GET /api/students/:email` - Fetch student profile
 - `POST /api/students/:email/feedback` - Save meal feedback
-- `DELETE /api/students/:email` - Delete profile
-
+- `DELETE /api/students/:email` - Delete profile (admin)
+ 
 ### Meals
-
-- `POST /api/meals` - Create meal
-- `GET /api/meals` - List meals (supports filters)
+ 
+- `POST /api/meals` - Create meal (admin)
+- `GET /api/meals` - List meals (supports filters and pagination)
 - `GET /api/meals/:id` - Get meal by id
 - `GET /api/meals/recommend/:email` - Personalized recommendations
 - `POST /api/meals/:id/rate` - Rate meal
-- `PUT /api/meals/:id` - Update meal
-- `DELETE /api/meals/:id` - Soft-delete meal (`isActive: false`)
-- `POST /api/meals/bulk-import` - Bulk import meals
+- `PUT /api/meals/:id` - Update meal (admin)
+- `DELETE /api/meals/:id` - Soft-delete meal (admin)
+- `POST /api/meals/bulk-import` - Bulk import meals (admin)
+
 
 ### ML API Base URL
 
@@ -243,14 +252,16 @@ npm run seed
 ## Environment Variables
 
 ### backend/.env
-
+ 
 ```env
 MONGO_URI=mongodb://localhost:27017/meal-recommender
 PORT=5001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ML_API_URL=http://localhost:5000
+JWT_SECRET=your_super_secret_key_here
 ```
+
 
 ### frontend/.env.local
 
@@ -264,8 +275,16 @@ VITE_ENABLE_ADMIN_FEATURES=true
 ```
 
 ## Testing
-
+ 
+Backend security tests:
+ 
+```bash
+cd backend
+npm test
+```
+ 
 ML API test script:
+
 
 ```bash
 cd ml
@@ -280,9 +299,10 @@ curl http://localhost:5000/health
 ```
 
 ## Notes
-
+ 
 - The frontend service layer contains helper methods for endpoints such as `/meals/search`, `/students/:email/history`, and `/students/:email/preferences`; these are not currently implemented in backend routes.
-- Admin login is currently a demo client-side credential check (`admin/admin123`) in the frontend.
+- Admin access is secured via JWT authentication. Admin routes require an `Authorization: Bearer <token>` header.
+
 
 ## License
 
