@@ -2,7 +2,6 @@
 
 ```bash
 git clone https://github.com/Minhaj225/NutriGoal.git
-cd meal-recommender-ai
 ```
 
 ### 2. Backend Setup
@@ -10,8 +9,11 @@ cd meal-recommender-ai
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Edit .env with your MongoDB URI and configuration
+cp .env.example .env # Edit .env with your MongoDB URI and configuration
+
+npm run seed # Run once to Populate database with sample meals
+npm run create-admin # Run once to Create an admin account for the dashboard
+
 npm run dev
 ```
 
@@ -32,11 +34,4 @@ cd ml
 pip install -r requirements.txt
 cd api
 python app.py
-```
-
-### 5. Database Seeding
-
-```bash
-cd backend
-npm run seed  # Populate database with sample meals
 ```
