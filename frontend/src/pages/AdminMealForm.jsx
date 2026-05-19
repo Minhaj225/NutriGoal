@@ -25,6 +25,8 @@ const AdminMealForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [mlFeatures, setMlFeatures] = useState([]);
   const [bulkImportFile, setBulkImportFile] = useState(null);
 
@@ -49,12 +51,13 @@ const AdminMealForm = () => {
     }
     loadMeals();
     loadMLFeatures();
-  }, []);
+  }, [page]);
 
   const loadMeals = async () => {
     try {
-      const response = await mealAPI.getMeals();
+      const response = await mealAPI.getMeals({}, page);
       setMeals(response.meals || []);
+      setTotalPages(response.totalPages || 1);
     } catch (err) {
       console.error("Error loading meals:", err);
     }
@@ -127,7 +130,8 @@ const AdminMealForm = () => {
         nutritionScore: "",
       });
 
-      // Reload meals
+      // Reload meals and reset to page 1
+      setPage(1);
       loadMeals();
     } catch (err) {
       setError("Failed to add meal: " + err.message);
@@ -177,6 +181,7 @@ const AdminMealForm = () => {
 
       await mealAPI.bulkImportMeals(meals);
       setSuccess(`Successfully imported ${meals.length} meals!`);
+      setPage(1);
       loadMeals();
       setBulkImportFile(null);
     } catch (err) {
@@ -191,7 +196,10 @@ const AdminMealForm = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">Admin: Meal Management</h1>
-          <div className="badge badge-primary">{meals.length} Total Meals</div>
+          <div className="flex items-center gap-4">
+            <div className="badge badge-primary">{meals.length} Meals on this page</div>
+            <div className="text-sm font-medium">Page {page} of {totalPages}</div>
+          </div>
         </div>
 
         {error && <ErrorMessage message={error} />}
@@ -573,6 +581,27 @@ const AdminMealForm = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <button
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+                className="btn btn-outline btn-md"
+              >
+                Previous
+              </button>
+              <span className="font-medium text-lg">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={page === totalPages}
+                className="btn btn-outline btn-md"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>

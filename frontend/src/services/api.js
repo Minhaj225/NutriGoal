@@ -23,7 +23,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // Avoid redirecting to login if the error occurred during the login request itself
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (!isLoginRequest && (error.response?.status === 401 || error.response?.status === 403)) {
       localStorage.removeItem('token');
       localStorage.removeItem('isAdmin');
       window.location.href = '/admin/login';
