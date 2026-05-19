@@ -238,6 +238,8 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ML_API_URL=http://localhost:5000
 JWT_SECRET=your_super_secret_key_here
+ADMIN_USERNAME = admin
+ADMIN_PASSWORD = admin123
 ```
 
 ### frontend/.env.local
