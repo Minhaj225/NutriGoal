@@ -127,6 +127,30 @@ NutriGoal/
 - **System Hardening**: Global rate limiting and protection against NoSQL Injection.
 - **Real-time Stats**: Home page dashboard with global meal and cuisine analytics.
 
+### In Detail:
+- 3-tier architecture (React → Node/Express → Flask/Python ML)
+- JWT authentication & RBAC (admin/staff roles)
+- Rate limiting (express-rate-limit, 100 req/15min)
+- NoSQL injection prevention via field allow-listing
+- Random Forest classifier (scikit-learn) with pickle model persistence + fallback model
+- Batch & single prediction endpoints with confidence scores
+- MongoDB with Mongoose (CRUD, aggregation pipelines, pagination)
+- Meal seeding from CSV, bulk CSV import
+- Rating system (weighted average + popularity tracking)
+- Student meal feedback/history tracking
+- Multi-criteria recommendation sorting (ML confidence × rating)
+- Graceful ML API degradation with fallback sorting
+- Global error handling + 404 handler
+- Vercel deployment configs for all 3 services
+- Health check + API info endpoints
+- React Router SPA with protected admin routes
+- Axios interceptors (auto JWT attachment, 401/403 redirects, logging)
+- Advanced filtering (cuisine, category, diet, calories, protein)
+- Sorting (popularity, rating, calories, protein)
+- Animated UI (GSAP typing effect, interactive dot grid)
+- Jest + Supertest security test suite
+- Admin dashboard with meal CRUD + ML feature display
+
 ## Getting Started
 
 ### Prerequisites
