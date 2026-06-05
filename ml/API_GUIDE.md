@@ -1,11 +1,13 @@
 # 🤖 AI Meal Recommendation API Guide
 
 ## 🌐 Live API Deployment
-- **Production URL**: [https://mealrecommender-production.up.railway.app](https://mealrecommender-production.up.railway.app)
+
+- **Production URL**: [https://meal-recommender-ml.vercel.app/](https://meal-recommender-ml.vercel.app/)
 - **Local Development**: `http://localhost:5000`
-- **Platform**: Railway (with automatic scaling and health monitoring)
+- **Platform**: Vercel (Python serverless runtime routed via `vercel.json`)
 
 ## 📋 Overview
+
 The Enhanced Flask ML API provides intelligent meal recommendations using a Random Forest Classifier trained on Indian food nutrition data. The API features:
 
 - **🧠 Machine Learning**: Random Forest model with real-time predictions
@@ -13,38 +15,41 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 - **⚡ Real-time Processing**: Sub-500ms prediction response times
 - **🔄 Batch Processing**: Multiple meal predictions in a single request
 - **🛡️ Error Handling**: Comprehensive validation and error responses
-- **📈 Model Metadata**: Accuracy metrics and feature importance tracking
+- **📈 Model Metadata**: Accuracy metrics and feature info endpoints
 - **🔍 Health Monitoring**: Production-ready health checks and status endpoints
 
 ## 🎯 Model Capabilities
 
 ### Training Data
+
 - **Dataset**: `indian_food_nutrition_dataset.csv` (comprehensive Indian cuisine nutrition data)
 - **Algorithm**: Random Forest Classifier with 100 estimators
 - **Target**: High-protein meal recommendations (above median protein content)
 - **Accuracy**: ~75-85% on test data (varies with dataset quality)
 
 ### Supported Features
-- **📊 Numerical Features**: 
+
+- **📊 Numerical Features**:
   - `calories` (0-1000+ kcal range)
   - `protein` (0-50+ grams range)
-  
 - **🏷️ Categorical Features** (One-hot encoded):
   - **Cuisine**: North Indian, South Indian, Street Food, General
-  - **Category**: Main Dish, Breakfast, Snack, Side Dish, Staple  
+  - **Category**: Main Dish, Breakfast, Snack, Side Dish, Staple
   - **Diet**: Vegetarian, Non-Vegetarian
 
 - **🔢 Model Metadata**:
-  - Feature count (typically 13-15 features after encoding)
-  - Model accuracy percentage
-  - Feature importance rankings
+  - Feature count (varies by trained model; check `/features`)
+  - Model accuracy value from the last train/test split
+  - Model loaded status from `/` and `/health`
 
 ## 🛠️ API Endpoints
 
 ### 1. `GET /` - API Information & Status
+
 **Description**: Returns comprehensive API status, model information, and available endpoints.
 
 **Response Example**:
+
 ```json
 {
   "message": "Enhanced Meal Recommendation ML API is running.",
@@ -53,7 +58,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
   "model_loaded": true,
   "endpoints": {
     "/predict": "POST - Get meal recommendation",
-    "/predict_batch": "POST - Get recommendations for multiple meals", 
+    "/predict_batch": "POST - Get recommendations for multiple meals",
     "/features": "GET - Get model feature information",
     "/health": "GET - Health check"
   }
@@ -61,14 +66,21 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 ```
 
 ### 2. `GET /features` - Model Feature Information
+
 **Description**: Returns detailed information about the trained model's features and performance.
 
 **Response Example**:
+
 ```json
 {
   "features": [
-    "calories", "protein", "cuisine_North Indian", "cuisine_South Indian",
-    "category_Main Dish", "category_Breakfast", "diet_Vegetarian"
+    "calories",
+    "protein",
+    "cuisine_North Indian",
+    "cuisine_South Indian",
+    "category_Main Dish",
+    "category_Breakfast",
+    "diet_Vegetarian"
   ],
   "feature_count": 13,
   "model_accuracy": 0.789
@@ -76,9 +88,11 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 ```
 
 ### 3. `POST /predict` - Single Meal Prediction
+
 **Description**: Get AI recommendation for a single meal with confidence scoring.
 
 **Request Format**:
+
 ```json
 {
   "meal_name": "Dal Tadka",
@@ -91,6 +105,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 ```
 
 **Response Format**:
+
 ```json
 {
   "meal_name": "Dal Tadka",
@@ -104,9 +119,11 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 **Optional Fields**: `meal_name` (defaults to "Unknown")
 
 ### 4. `POST /predict_batch` - Batch Meal Predictions
-**Description**: Process multiple meals efficiently in a single request for bulk recommendations.
+
+**Description**: Process multiple meals efficiently in a single request for bulk recommendations. Invalid meal entries return per-item errors without failing the whole batch.
 
 **Request Format**:
+
 ```json
 {
   "meals": [
@@ -114,7 +131,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
       "meal_name": "Dal Tadka",
       "calories": 180,
       "protein": 9,
-      "cuisine": "North Indian", 
+      "cuisine": "North Indian",
       "category": "Main Dish",
       "diet": "Vegetarian"
     },
@@ -123,7 +140,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
       "calories": 350,
       "protein": 28,
       "cuisine": "North Indian",
-      "category": "Main Dish", 
+      "category": "Main Dish",
       "diet": "Non-Vegetarian"
     }
   ]
@@ -131,6 +148,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 ```
 
 **Response Format**:
+
 ```json
 {
   "results": [
@@ -140,7 +158,7 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
       "confidence": 0.85
     },
     {
-      "meal_name": "Butter Chicken", 
+      "meal_name": "Butter Chicken",
       "recommended": true,
       "confidence": 0.92
     }
@@ -151,9 +169,11 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 ```
 
 ### 5. `GET /health` - Health Check & Monitoring
+
 **Description**: Production health check endpoint for monitoring and load balancer integration.
 
 **Response Format**:
+
 ```json
 {
   "status": "healthy",
@@ -166,13 +186,17 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 
 ## 📝 Supported Values & Validation
 
+Note: One-hot values are derived from the trained model. Use `/features` for the exact list in production.
+
 ### 🍛 Cuisine Types
+
 - **North Indian**: Dal, Curry, Roti, Naan-based dishes
-- **South Indian**: Rice, Dosa, Idli, Sambar-based dishes  
+- **South Indian**: Rice, Dosa, Idli, Sambar-based dishes
 - **Street Food**: Chaat, Vada Pav, Pani Puri, etc.
 - **General**: Pan-Indian or fusion dishes
 
 ### 🍽️ Category Types
+
 - **Main Dish**: Primary meals (lunch/dinner items)
 - **Breakfast**: Morning meal items
 - **Snack**: Light eating items between meals
@@ -180,21 +204,24 @@ The Enhanced Flask ML API provides intelligent meal recommendations using a Rand
 - **Staple**: Basic food items (rice, bread, etc.)
 
 ### 🥬 Diet Types
+
 - **Vegetarian**: Plant-based ingredients only
 - **Non-Vegetarian**: Includes meat, fish, or poultry
 
 ### 📊 Numerical Ranges
+
 - **Calories**: 0-1000+ kcal (typical range: 100-800)
 - **Protein**: 0-50+ grams (typical range: 2-40)
 
 ## 🚀 Integration Examples
 
 ### 1. **Python Integration**
+
 ```python
 import requests
 
 # Single prediction
-response = requests.post('https://mealrecommender-production.up.railway.app/predict', 
+response = requests.post('https://meal-recommender-ml.vercel.app/predict',
   json={
     "meal_name": "Paneer Butter Masala",
     "calories": 320,
@@ -209,19 +236,20 @@ print(f"Recommended: {result['recommended']}, Confidence: {result['confidence']}
 ```
 
 ### 2. **JavaScript/React Integration**
+
 ```javascript
 // Using axios (as implemented in the frontend)
-import axios from 'axios';
+import axios from "axios";
 
 const predictMeal = async (mealData) => {
   try {
     const response = await axios.post(
-      'https://mealrecommender-production.up.railway.app/predict',
-      mealData
+      "https://meal-recommender-ml.vercel.app/predict",
+      mealData,
     );
     return response.data;
   } catch (error) {
-    console.error('Prediction failed:', error);
+    console.error("Prediction failed:", error);
     throw error;
   }
 };
@@ -231,33 +259,38 @@ const recommendation = await predictMeal({
   meal_name: "Biryani",
   calories: 450,
   protein: 20,
-  cuisine: "North Indian", 
+  cuisine: "North Indian",
   category: "Main Dish",
-  diet: "Non-Vegetarian"
+  diet: "Non-Vegetarian",
 });
 ```
 
 ### 3. **Backend Integration (Node.js)**
+
 ```javascript
 // As implemented in backend/routes/mealRoutes.js
-const axios = require('axios');
+const axios = require("axios");
 
 const getMLRecommendations = async (meals) => {
   try {
-    const mlResponse = await axios.post(`${ML_API_URL}/predict_batch`, {
-      meals: meals.map(meal => ({
-        meal_name: meal.mealName,
-        calories: meal.calories,
-        protein: meal.protein,
-        cuisine: meal.cuisine,
-        category: meal.category,
-        diet: meal.dietaryPreference
-      }))
-    }, { timeout: 10000 });
-    
+    const mlResponse = await axios.post(
+      `${ML_API_URL}/predict_batch`,
+      {
+        meals: meals.map((meal) => ({
+          meal_name: meal.mealName,
+          calories: meal.calories,
+          protein: meal.protein,
+          cuisine: meal.cuisine,
+          category: meal.category,
+          diet: meal.dietaryPreference,
+        })),
+      },
+      { timeout: 10000 },
+    );
+
     return mlResponse.data.results;
   } catch (error) {
-    console.error('ML API Error:', error);
+    console.error("ML API Error:", error);
     return [];
   }
 };
@@ -266,6 +299,7 @@ const getMLRecommendations = async (meals) => {
 ## 🧪 Testing & Development
 
 ### **Local Development Setup**
+
 ```bash
 # 1. Install dependencies
 cd ml
@@ -279,63 +313,69 @@ python app.py
 ```
 
 ### **Automated Testing**
+
 ```bash
 # Run comprehensive API tests
 python test_api.py
 
 # Expected output includes:
 # ✅ API Info test
-# ✅ Features endpoint test  
+# ✅ Features endpoint test
 # ✅ Single prediction test
 # ✅ Batch prediction test
 # ✅ Health check test
 ```
 
 ### **Manual Testing with cURL**
+
 ```bash
 # Health check
-curl https://mealrecommender-production.up.railway.app/health
+curl https://meal-recommender-ml.vercel.app/health
 
 # Single prediction
-curl -X POST https://mealrecommender-production.up.railway.app/predict \
+curl -X POST https://meal-recommender-ml.vercel.app/predict \
   -H "Content-Type: application/json" \
   -d '{
-    "meal_name": "Masala Dosa", 
+    "meal_name": "Masala Dosa",
     "calories": 280,
     "protein": 8,
     "cuisine": "South Indian",
-    "category": "Breakfast", 
+    "category": "Breakfast",
     "diet": "Vegetarian"
   }'
 
 # Get model features
-curl https://mealrecommender-production.up.railway.app/features
+curl https://meal-recommender-ml.vercel.app/features
 ```
 
 ## 🏗️ Architecture & Deployment
 
 ### **Production Environment**
-- **Platform**: Railway with Nixpacks buildpack
-- **Runtime**: Python 3.9+ with gunicorn WSGI server
-- **Scaling**: Automatic scaling based on CPU/memory usage  
-- **Health Checks**: `/health` endpoint with 300s timeout
-- **Restart Policy**: Automatic restart on failure (max 3 retries)
+
+- **Platform**: Vercel (serverless Python runtime)
+- **Runtime**: Python 3.9+ via Vercel's Python runtime
+- **Routing**: `vercel.json` routes all requests to `api/app.py`
+- **Scaling**: Automatic scaling handled by Vercel
+- **Health Checks**: `/health` endpoint for external monitoring
 
 ### **Model Persistence**
-- **Storage**: `model.pkl` file with joblib serialization
+
+- **Storage**: `model.pkl` file serialized with `pickle` (model, features, accuracy)
 - **Loading**: Automatic model loading on startup
 - **Fallback**: Dummy model creation if real model fails
 - **Training**: Automatic retraining from dataset if model missing
 
 ### **Performance Metrics**
-- **Response Time**: ~200-500ms per prediction
-- **Batch Processing**: ~100-200ms per meal in batch  
-- **Uptime**: 99.9% availability on Railway
+
+- **Response Time**: ~200-500ms per prediction (varies by payload size)
+- **Batch Processing**: ~100-200ms per meal in batch
+- **Uptime**: Platform-dependent; check Vercel status and logs
 - **Memory Usage**: ~512MB baseline, scales with batch size
 
 ## 🔧 Error Handling & Troubleshooting
 
 ### **Common Error Responses**
+
 ```json
 // Missing required field
 {
@@ -356,23 +396,26 @@ curl https://mealrecommender-production.up.railway.app/features
 ```
 
 ### **Troubleshooting Steps**
-1. **API Not Responding**: Check Railway service status
+
+1. **API Not Responding**: Check Vercel deployment status and logs
 2. **Prediction Errors**: Validate input data format and required fields
 3. **Low Confidence**: Review meal nutrition values against training data
 4. **Batch Failures**: Reduce batch size or check individual meal data
 
 ## 📚 Related Documentation
+
 - **Main README**: [Project Overview](../README.md)
-- **Backend API**: [Backend Routes](../backend/README.md)  
+- **Backend API**: [Backend Routes](../backend/README.md)
 - **Frontend Integration**: [React Service Layer](../frontend/src/services/api.js)
 - **Dataset Info**: [Training Data](./indian_food_nutrition_dataset.csv)
 
 ## 📞 Support & Monitoring
+
 - **Health Monitoring**: `/health` endpoint for uptime monitoring
 - **Error Tracking**: Detailed error responses with stack traces
-- **Performance**: Railway metrics dashboard for resource monitoring
-- **Logs**: Real-time logs available in Railway dashboard
+- **Performance**: Vercel analytics and logs for resource monitoring
+- **Logs**: Real-time logs available in the Vercel dashboard
 
 ---
 
-🤖 **Built with Flask, scikit-learn, and deployed on Railway for reliable ML predictions**
+🤖 **Built with Flask, scikit-learn, and deployed on Vercel for reliable ML predictions**
