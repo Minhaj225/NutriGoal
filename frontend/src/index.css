@@ -1,2 +1,50 @@
 @import "tailwindcss";
-@plugin "daisyui";
+
+@theme {
+  --color-background: #FAFAF8;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F4F4F5;
+  --color-border: #E4E4E7;
+  --color-border-focus: #10b981;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+  --color-primary: #10b981;
+  --color-primary-hover: #059669;
+  --color-primary-muted: rgba(16, 185, 129, 0.08);
+  --color-error: #ef4444;
+  --color-error-muted: rgba(239, 68, 68, 0.08);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-warning-muted: rgba(245, 158, 11, 0.08);
+  --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@layer base {
+  button, a {
+    @apply transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)];
+  }
+  button:active, a:active {
+    @apply scale-[0.98];
+  }
+}

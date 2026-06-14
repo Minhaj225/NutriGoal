@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { mealAPI, studentAPI, apiUtils } from "../services/api";
 import MealCard from "../components/meals/MealCard";
-import LoadingSpinner from "../components/common/LoadingSpinner";
+import Skeleton from "../components/common/Skeleton";
 import ErrorMessage from "../components/common/ErrorMessage";
+import { useStaggeredEntry } from "../hooks/useStaggeredEntry";
 
 const Recommendations = () => {
   const [email, setEmail] = useState("");
@@ -15,6 +17,8 @@ const Recommendations = () => {
     limit: 10,
     mealType: "",
   });
+
+  const gridRef = useStaggeredEntry([recommendations]);
 
   // Load email from URL params or localStorage
   useEffect(() => {
@@ -41,7 +45,7 @@ const Recommendations = () => {
       if (response.success) {
         setStudent(response.student);
       }
-    } catch (error) {
+    } catch {
       console.log("Student profile not found");
       setStudent(null);
     }
@@ -87,28 +91,15 @@ const Recommendations = () => {
 
   const handleRating = async (mealId, rating) => {
     try {
-      // Submit rating to backend
       await mealAPI.rateMeal(mealId, rating, email);
-
-      // Update the meal rating in the recommendations list
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userRating: rating } : meal
         )
       );
-
-      // Show success message
-      setSuccess(
-        `✅ Rating submitted! You gave ${rating} star${
-          rating !== 1 ? "s" : ""
-        }.`
-      );
+      setSuccess(`✅ Rating submitted! You gave ${rating} star${rating !== 1 ? "s" : ""}.`);
       setError("");
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(""), 3000);
-
-      console.log(`Successfully rated meal ${mealId} with ${rating} stars`);
     } catch (error) {
       console.error("Failed to submit rating:", error);
       setError(`Failed to submit rating: ${apiUtils.handleError(error)}`);
@@ -118,30 +109,15 @@ const Recommendations = () => {
 
   const handleFeedback = async (mealId, liked) => {
     try {
-      // Submit feedback to backend
       await studentAPI.recordFeedback(email, mealId, liked);
-
-      // Update the meal feedback in the recommendations list
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userFeedback: liked } : meal
         )
       );
-
-      // Show success message
-      setSuccess(
-        `✅ Feedback recorded! You ${liked ? "liked" : "disliked"} this meal.`
-      );
+      setSuccess(`✅ Feedback recorded! You ${liked ? "liked" : "disliked"} this meal.`);
       setError("");
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(""), 3000);
-
-      console.log(
-        `Successfully recorded feedback for meal ${mealId}: ${
-          liked ? "liked" : "disliked"
-        }`
-      );
     } catch (error) {
       console.error("Failed to record feedback:", error);
       setError(`Failed to record feedback: ${apiUtils.handleError(error)}`);
@@ -153,169 +129,119 @@ const Recommendations = () => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  const categoryOptions = [
-    "",
-    "Main Dish",
-    "Breakfast",
-    "Snack",
-    "Side Dish",
-    "Staple",
-  ];
+  const categoryOptions = ["", "Main Dish", "Breakfast", "Snack", "Side Dish", "Staple"];
 
   return (
-    <div className="min-h-screen bg-base-200 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">
-            Personalized Meal Recommendations
+    <main className="min-h-screen bg-background py-24 md:py-32 text-text-primary">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Page Header */}
+        <div className="mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-text-primary mb-2">
+            Personalized Recommendations
           </h1>
-          <p className="text-lg text-gray-600">
-            Get AI-powered meal suggestions based on your preferences and
-            nutrition goals
+          <p className="text-text-secondary max-w-lg">
+            Get AI-powered meal suggestions based on your preferences and nutrition goals.
           </p>
         </div>
 
         {/* Email Input and Filters */}
-        <div className="card bg-base-100 shadow-xl mb-8">
-          <div className="card-body">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="form-control md:col-span-2 mt-5.5">
-                <label className="label">
-                  <span className="label-text font-semibold mx-3">
-                    Your Email
-                  </span>
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input input-bordered"
-                  placeholder="Enter your email to get recommendations"
-                />
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Meal Type</span>
-                </label>
-                <select
-                  value={filters.mealType}
-                  onChange={(e) =>
-                    handleFilterChange("mealType", e.target.value)
-                  }
-                  className="select select-bordered"
-                >
-                  <option value="">All Types</option>
-                  {categoryOptions.slice(1).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Number of Results</span>
-                </label>
-                <select
-                  value={filters.limit}
-                  onChange={(e) =>
-                    handleFilterChange("limit", parseInt(e.target.value))
-                  }
-                  className="select select-bordered"
-                >
-                  <option value={5}>5 meals</option>
-                  <option value={10}>10 meals</option>
-                  <option value={15}>15 meals</option>
-                  <option value={20}>20 meals</option>
-                </select>
-              </div>
+        <section className="bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 md:p-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Your Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder:text-text-muted"
+                placeholder="Enter your email to get recommendations"
+              />
             </div>
 
-            <div className="card-actions justify-center mt-6">
-              <button
-                onClick={fetchRecommendations}
-                className={`btn btn-primary btn-lg ${loading ? "loading" : ""}`}
-                disabled={loading || !email}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Meal Type
+              </label>
+              <select
+                value={filters.mealType}
+                onChange={(e) => handleFilterChange("mealType", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors appearance-none"
               >
-                {loading
-                  ? "Getting Recommendations..."
-                  : "Get My Recommendations"}
-              </button>
+                <option value="">All Types</option>
+                {categoryOptions.slice(1).map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Results
+              </label>
+              <select
+                value={filters.limit}
+                onChange={(e) => handleFilterChange("limit", parseInt(e.target.value))}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors appearance-none"
+              >
+                <option value={5}>5 meals</option>
+                <option value={10}>10 meals</option>
+                <option value={15}>15 meals</option>
+                <option value={20}>20 meals</option>
+              </select>
             </div>
           </div>
-        </div>
+
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={fetchRecommendations}
+              className="bg-primary text-white rounded-full px-8 py-3 font-medium hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !email}
+            >
+              {loading ? "Getting Recommendations..." : "Get My Recommendations"}
+            </button>
+          </div>
+        </section>
 
         {/* Student Profile Summary */}
         {student && (
-          <div className="card bg-base-100 shadow-xl mb-8">
-            <div className="card-body">
-              <h3 className="card-title text-2xl font-bold">
-                Your Profile Summary
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3">
-                <div>
-                  <p>
-                    <strong>Name:</strong> {student.name}
-                  </p>
-                  <p>
-                    <strong>Diet:</strong>{" "}
-                    {student.preferences?.dietaryPreference}
-                  </p>
-                </div>
-                <div>
-                  <p>
-                    <strong>Preferred Cuisines:</strong>{" "}
-                    {student.preferences?.cuisines?.join(", ") || "All"}
-                  </p>
-                  <p>
-                    <strong>Activity Level:</strong> {student.activityLevel}
-                  </p>
-                </div>
-                <div>
-                  <p>
-                    <strong>Daily Calories:</strong>{" "}
-                    {student.nutritionGoals?.caloriesPerDay}
-                  </p>
-                  <p>
-                    <strong>Daily Protein:</strong>{" "}
-                    {student.nutritionGoals?.proteinGramsPerDay}g
-                  </p>
-                </div>
+          <section className="bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 mb-8">
+            <div className="flex justify-between items-start mb-5">
+              <h3 className="text-lg font-semibold text-text-primary">Your Profile</h3>
+              <Link
+                to={`/profile?email=${email}`}
+                className="text-sm font-medium text-primary hover:text-primary-hover transition-colors"
+              >
+                Edit →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div className="space-y-2">
+                <p><span className="text-text-muted">Name:</span> {student.name}</p>
+                <p><span className="text-text-muted">Diet:</span> {student.preferences?.dietaryPreference}</p>
               </div>
-              <div className="card-actions justify-end">
-                <a
-                  href={`/profile?email=${email}`}
-                  className="btn btn-sm btn-outline"
-                >
-                  Edit Profile
-                </a>
+              <div className="space-y-2">
+                <p><span className="text-text-muted">Cuisines:</span> {student.preferences?.cuisines?.join(", ") || "All"}</p>
+                <p><span className="text-text-muted">Activity:</span> {student.activityLevel}</p>
+              </div>
+              <div className="space-y-2">
+                <p><span className="text-text-muted">Daily Cal:</span> <span className="font-mono text-text-primary">{student.nutritionGoals?.caloriesPerDay}</span></p>
+                <p><span className="text-text-muted">Daily Protein:</span> <span className="font-mono text-text-primary">{student.nutritionGoals?.proteinGramsPerDay}g</span></p>
               </div>
             </div>
-          </div>
+          </section>
         )}
 
         {/* Error Display */}
-        {error && (
-          <ErrorMessage message={error} onRetry={fetchRecommendations} />
-        )}
+        {error && <ErrorMessage message={error} onRetry={fetchRecommendations} />}
 
         {/* Success Display */}
         {success && (
-          <div className="alert alert-success mb-8">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="stroke-current flex-shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+          <div className="bg-success/10 text-success rounded-lg p-3 flex items-center mb-8 text-sm font-medium">
+            <svg className="w-4 h-4 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>{success}</span>
           </div>
@@ -323,53 +249,39 @@ const Recommendations = () => {
 
         {/* Loading State */}
         {loading && (
-          <LoadingSpinner message="Finding the perfect meals for you..." />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-12">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} variant="card" />
+            ))}
+          </div>
         )}
 
         {/* No Profile Warning */}
         {email && !student && !loading && (
-          <div className="alert alert-warning mb-8">
-            <div>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current flex-shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 15.5c-.77.833.192 2.5 1.732 2.5z"
-                />
+          <div className="bg-warning-muted border border-warning/20 rounded-lg p-4 flex items-start justify-between mb-8">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
-              <span>
-                No profile found for this email. Create your profile first for
-                better recommendations!
-              </span>
+              <span className="text-sm text-text-secondary">No profile found for this email. Create your profile first for better recommendations!</span>
             </div>
-            <div className="flex-none">
-              <a href={`/profile?email=${email}`} className="btn btn-sm">
-                Create Profile
-              </a>
-            </div>
+            <Link to={`/profile?email=${email}`} className="text-sm font-medium text-primary hover:text-primary-hover transition-colors whitespace-nowrap ml-4">
+              Create Profile →
+            </Link>
           </div>
         )}
 
         {/* Recommendations Grid */}
         {recommendations.length > 0 && (
-          <div>
+          <section>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">
-                🎯 Your Recommendations ({recommendations.length})
-              </h2>
-              <div className="text-sm text-gray-600">
-                {recommendations.filter((m) => m.mlRecommended).length}{" "}
-                AI-powered recommendations
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">Your Recommendations ({recommendations.length})</h2>
+              <div className="text-sm text-text-muted">
+                {recommendations.filter((m) => m.mlRecommended).length} AI-powered
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recommendations.map((meal) => (
                 <MealCard
                   key={meal._id}
@@ -384,73 +296,54 @@ const Recommendations = () => {
             </div>
 
             {/* Recommendations Info */}
-            <div className="card bg-base-100 shadow-xl mt-8">
-              <div className="card-body">
-                <h3 className="card-title">📊 Recommendation Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="stat">
-                    <div className="stat-title">Total Meals Evaluated</div>
-                    <div className="stat-value text-lg">99</div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-title">AI Recommendations</div>
-                    <div className="stat-value text-lg">
-                      {recommendations.filter((m) => m.mlRecommended).length}
-                    </div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-title">Avg Confidence</div>
-                    <div className="stat-value text-lg">
-                      {recommendations.length > 0
-                        ? Math.round(
-                            (recommendations.reduce(
-                              (acc, m) => acc + (m.confidence || 0),
-                              0
-                            ) /
-                              recommendations.length) *
-                              100
-                          )
-                        : 0}
-                      %
-                    </div>
+            <div className="bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 mt-8">
+              <h3 className="text-lg font-semibold text-text-primary mb-5">Recommendation Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                  <div className="text-sm text-text-muted mb-1">Total Evaluated</div>
+                  <div className="text-2xl font-bold font-mono text-text-primary">99</div>
+                </div>
+                <div>
+                  <div className="text-sm text-text-muted mb-1">AI Picks</div>
+                  <div className="text-2xl font-bold font-mono text-primary">
+                    {recommendations.filter((m) => m.mlRecommended).length}
                   </div>
                 </div>
-
-                <div className="alert alert-info mt-4">
-                  <div className="text-sm">
-                    <p>
-                      <strong>💡 How it works:</strong>
-                    </p>
-                    <p>
-                      Our AI analyzes your preferences, nutrition goals, and
-                      dietary restrictions to find meals you'll love. Rate meals
-                      to improve future recommendations!
-                    </p>
+                <div>
+                  <div className="text-sm text-text-muted mb-1">Avg Confidence</div>
+                  <div className="text-2xl font-bold font-mono text-text-primary">
+                    {recommendations.length > 0
+                      ? Math.round((recommendations.reduce((acc, m) => acc + (m.confidence || 0), 0) / recommendations.length) * 100)
+                      : 0}%
                   </div>
                 </div>
               </div>
+
+              <div className="bg-primary-muted rounded-lg p-4 text-sm text-text-secondary">
+                <p className="mb-1"><span className="font-medium text-primary">How it works:</span></p>
+                <p>Our AI analyzes your preferences, nutrition goals, and dietary restrictions to find meals you'll love. Rate meals to improve future recommendations!</p>
+              </div>
             </div>
-          </div>
+          </section>
         )}
 
         {/* Empty State */}
         {!loading && recommendations.length === 0 && !error && email && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-bold mb-2">No Recommendations Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Enter your email and click "Get My Recommendations" to discover
-              amazing meals!
+          <section className="text-center py-16 bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="text-5xl mb-6">🔍</div>
+            <h3 className="text-xl font-semibold mb-3 text-text-primary">No Recommendations Yet</h3>
+            <p className="text-text-secondary mb-8 max-w-md mx-auto text-sm">
+              Enter your email and click "Get My Recommendations" to discover amazing meals!
             </p>
             {!student && (
-              <a href={`/profile?email=${email}`} className="btn btn-primary">
+              <Link to={`/profile?email=${email}`} className="border border-border text-text-primary rounded-full px-6 py-2.5 text-sm font-medium hover:bg-surface-alt transition-colors">
                 Create Your Profile First
-              </a>
+              </Link>
             )}
-          </div>
+          </section>
         )}
       </div>
-    </div>
+    </main>
   );
 };
 

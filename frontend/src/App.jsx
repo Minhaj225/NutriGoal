@@ -34,7 +34,7 @@ const ProtectedAdminRoute = ({ children }) => {
 const App = () => {
   return (
     <Router>
-      <div className="min-h-screen bg-base-100">
+      <div className="min-h-screen bg-background flex flex-col text-text-primary pt-20">
         <Navigation />
         <Routes>
           <Route path="/" element={<Home />} />

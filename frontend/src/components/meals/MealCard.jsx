@@ -30,14 +30,11 @@ const MealCard = ({
       setRating(newRating);
       if (onRate) onRate(meal._id, newRating);
 
-      // Auto-record feedback based on rating using the correct API
       if (showFeedback) {
         const liked = newRating >= 3;
         if (onFeedback) {
-          // Use the onFeedback prop to let parent handle the API call
           onFeedback(meal._id, liked);
         } else {
-          // Fallback: call studentAPI directly
           await studentAPI.recordFeedback(userEmail, meal._id, liked);
         }
         setFeedback(liked);
@@ -53,99 +50,102 @@ const MealCard = ({
   const formattedMeal = apiUtils.formatMealData(meal);
 
   return (
-    <div className="card bg-base-100 shadow-xl">
-      <div className="card-body">
-        <div className="flex justify-between items-start">
-          <h3 className="card-title text-lg">{meal.mealName}</h3>
+    <article className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-border overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 active:scale-[0.98] flex flex-col h-full text-text-primary">
+      <div className="p-5 flex-grow flex flex-col">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="text-xl font-semibold leading-tight text-text-primary">
+            {meal.mealName}
+          </h3>
           {meal.confidence && (
-            <div className="badge badge-info">
+            <div className="px-3 py-1 bg-primary-muted text-primary rounded-full text-xs font-medium whitespace-nowrap ml-2">
               {Math.round(meal.confidence * 100)}% match
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-2">
-          <span className={`badge ${apiUtils.getCuisineColor(meal.cuisine)}`}>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className="bg-primary-muted text-primary rounded-full px-3 py-1 text-xs font-medium">
             {meal.cuisine}
           </span>
-          <span
-            className={`badge ${apiUtils.getDietColor(meal.dietaryPreference)}`}
-          >
+          <span className="bg-surface-alt text-text-secondary rounded-full px-3 py-1 text-xs">
             {meal.dietaryPreference}
           </span>
-          <span className="badge badge-outline">{meal.category}</span>
+          <span className="bg-surface-alt text-text-muted rounded-full px-3 py-1 text-xs">
+            {meal.category}
+          </span>
         </div>
 
-        <div className="mt-3 text-sm text-gray-300">
-          <span className="font-semibold">Quantity:</span> {servingSizeLabel}
+        <div className="text-sm text-text-secondary mb-4">
+          <span className="font-semibold text-text-primary">Quantity:</span> {servingSizeLabel}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-3">
-          <div className="stat">
-            <div className="stat-title text-sm">Calories</div>
-            <div className="stat-value text-sm">{meal.calories} kcal</div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-surface-alt rounded-xl p-3">
+            <div className="text-xs text-text-muted mb-1 uppercase tracking-wider font-medium">Calories</div>
+            <div className="text-lg font-semibold text-text-primary">{meal.calories} <span className="text-sm font-normal text-text-muted">kcal</span></div>
           </div>
-          <div className="stat">
-            <div className="stat-title text-sm">Protein</div>
-            <div className="stat-value text-sm">{meal.protein} g</div>
-            <div className="stat-desc text-xs text-gray-400">
-              {proteinContext}
-            </div>
+          <div className="bg-surface-alt rounded-xl p-3">
+            <div className="text-xs text-text-muted mb-1 uppercase tracking-wider font-medium">Protein</div>
+            <div className="text-lg font-semibold text-text-primary">{meal.protein} <span className="text-sm font-normal text-text-muted">g</span></div>
+            <div className="text-xs text-text-muted mt-0.5">{proteinContext}</div>
           </div>
         </div>
 
         {meal.description && (
-          <p className="text-md text-gray-300 mt-2">{meal.description}</p>
+          <p className="text-sm text-text-secondary mb-4 line-clamp-2 flex-grow">
+            {meal.description}
+          </p>
         )}
 
-        <div className="flex justify-between items-center mt-4">
-          <div className="text-xs text-gray-500">
+        <div className="flex justify-between items-center mt-auto pt-4 border-t border-border">
+          <div className="text-xs text-text-muted">
             {formattedMeal.ratingDisplay}
           </div>
           {meal.mlRecommended && (
-            <div className="badge badge-success text-xs">AI Recommended</div>
+            <div className="px-3 py-1 bg-primary-muted text-primary rounded-full text-xs font-medium">
+              AI Recommended
+            </div>
           )}
         </div>
 
         {showRating && (
-          <div className="card-actions justify-center mt-4">
-            <div className="rating">
+          <div className="mt-4 flex flex-col items-center">
+            <div className="flex items-center space-x-1">
               {[1, 2, 3, 4, 5].map((star) => (
-                <input
+                <button
                   key={star}
-                  type="radio"
-                  name={`rating-${meal._id}`}
-                  className={`mask mask-star-2 ${
-                    star <= (rating || meal.userRating || 0)
-                      ? "bg-orange-400"
-                      : "bg-gray-300"
-                  }`}
+                  type="button"
                   onClick={() => handleRating(star)}
                   disabled={isRating}
-                />
+                  className={`focus:outline-none text-2xl transition-all active:scale-[0.90] ${
+                    star <= (rating || meal.userRating || 0)
+                      ? "text-warning hover:opacity-80"
+                      : "text-border hover:text-text-muted"
+                  } ${isRating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  ★
+                </button>
               ))}
+              {isRating && (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary ml-2"></div>
+              )}
             </div>
-            {isRating && (
-              <span className="loading loading-spinner loading-xs ml-2"></span>
-            )}
           </div>
         )}
 
         {feedback !== null && (
-          <div
-            className={`alert ${
-              feedback ? "alert-success" : "alert-warning"
-            } mt-2`}
-          >
-            <span className="text-xs">
-              {feedback
-                ? "👍 Added to favorites!"
-                : "👎 We'll improve recommendations"}
-            </span>
+          <div className={`mt-3 p-2 rounded-lg text-xs text-center ${
+            feedback 
+              ? "bg-primary-muted text-primary" 
+              : "bg-warning-muted text-warning"
+          }`}>
+            {feedback
+              ? "👍 Added to favorites!"
+              : "👎 We'll improve recommendations"}
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 };
 

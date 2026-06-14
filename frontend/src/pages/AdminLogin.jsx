@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { systemAPI } from "../services/api";
-import LoadingSpinner from "../components/common/LoadingSpinner";
-import ErrorMessage from "../components/common/ErrorMessage";
 
 const AdminLogin = () => {
   const [username, setUsername] = useState("");
@@ -11,10 +9,10 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Check if already logged in
   useEffect(() => {
-    // Check if already logged in as admin
     if (localStorage.getItem("isAdmin") === "true") {
-      navigate("/admin/meals", { replace: true });
+      navigate("/admin/meals");
     }
   }, [navigate]);
 
@@ -27,153 +25,152 @@ const AdminLogin = () => {
       const response = await systemAPI.login(username, password);
 
       if (response.success) {
-        localStorage.setItem("token", response.token);
+        // Store admin status in localStorage
         localStorage.setItem("isAdmin", "true");
-        localStorage.setItem("adminUser", response.username);
+        localStorage.setItem("adminUser", username);
 
-        // Dispatch custom event for other components to listen
+        // Dispatch custom event to notify Navigation component
         window.dispatchEvent(new Event("adminLoginChange"));
 
-        // Navigate with replace to avoid going back to login
-        navigate("/admin/meals", { replace: true });
+        // Redirect to admin dashboard
+        navigate("/admin/meals");
       } else {
-        setError("Invalid credentials.");
+        setError(response.message || "Invalid credentials");
       }
     } catch (err) {
-      if (err.response?.status === 401) {
-        setError("Invalid username or password.");
-      } else {
-        setError(err.message || "Login failed. Please try again.");
-      }
-      console.error("Login error:", err);
+      setError(
+        err.response?.data?.message ||
+          "Login failed. Please check your connection."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
     localStorage.removeItem("isAdmin");
     localStorage.removeItem("adminUser");
-    setUsername("");
-    setPassword("");
+    window.dispatchEvent(new Event("adminLoginChange"));
+    navigate("/");
   };
 
-  const isLoggedIn = localStorage.getItem("isAdmin") === "true";
+  // If already logged in, show logout screen (fallback)
+  if (localStorage.getItem("isAdmin") === "true") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-text-primary px-4">
+        <div className="max-w-md w-full bg-surface rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-border p-8 text-center">
+          {/* Leaf Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="w-12 h-12 rounded-full bg-primary-muted flex items-center justify-center">
+              <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 2C16 2 28 6 28 16C28 22.627 22.627 28 16 28C9.373 28 4 22.627 4 16C4 10 8 6 12 4" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M16 2C16 2 16 10 16 16" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M16 10C19 7 24 6 24 6" stroke="#10b981" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-text-primary mb-2">Admin Dashboard</h2>
+          <p className="mb-8 text-text-secondary text-sm">You are already logged in as admin.</p>
+          <div className="flex flex-col space-y-3">
+            <button
+              onClick={() => navigate("/admin/meals")}
+              className="w-full bg-primary text-white font-medium py-3 rounded-full hover:bg-primary-hover transition-colors"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-surface border border-border font-medium py-3 rounded-full text-text-secondary hover:border-error hover:text-error transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      {/* Background Decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-secondary/20 rounded-full blur-3xl"></div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8 text-text-primary">
+      <div className="max-w-md w-full bg-surface rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-border p-8">
+        {/* Leaf Icon */}
+        <div className="flex justify-center mb-6">
+          <div className="w-14 h-14 rounded-full bg-primary-muted flex items-center justify-center">
+            <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2C16 2 28 6 28 16C28 22.627 22.627 28 16 28C9.373 28 4 22.627 4 16C4 10 8 6 12 4" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M16 2C16 2 16 10 16 16" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M16 10C19 7 24 6 24 6" stroke="#10b981" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+        </div>
 
-      {/* Login Form */}
-      <div className="card bg-slate-800 shadow-2xl border border-slate-700 max-w-md w-full relative z-10">
-        <div className="card-body p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="text-3xl">🔐</span>
-            </div>
-            <h1 className="text-3xl font-bold text-white">Admin Login</h1>
-            <p className="text-slate-400 mt-2">
-              Enter your credentials to access the dashboard
-            </p>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-text-primary">Admin Access</h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            Sign in to manage meals and view analytics
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-error-muted border border-error/30 text-error p-3 rounded-lg text-sm mb-6 flex items-start">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-text-primary"
+              placeholder="Enter admin username"
+              required
+            />
           </div>
 
-          {isLoggedIn ? (
-            <div className="text-center space-y-4">
-              <div className="alert alert-success bg-green-500/10 border-green-500/20 text-green-400">
-                <span>✅ You are logged in as admin</span>
-              </div>
-              <div className="flex flex-col gap-3">
-                <Link to="/admin/meals" className="btn btn-primary w-full">
-                  Go to Admin Dashboard
-                </Link>
-                <button onClick={handleLogout} className="btn btn-outline btn-error w-full">
-                  Logout
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="alert alert-error bg-error/10 border-error/20 text-error text-sm py-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  <span>{error}</span>
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-text-primary"
+              placeholder="Enter password"
+              required
+            />
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              className="w-full bg-primary text-white font-medium py-3 rounded-full hover:bg-primary-hover transition-colors flex justify-center items-center"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Authenticating...
+                </>
+              ) : (
+                "Sign In"
               )}
-              
-              <div className="form-control ml-7">
-                <label className="label">
-                  <span className="label-text text-slate-300 font-medium">Username</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="input input-bordered bg-slate-900 border-slate-700 text-white focus:border-primary"
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="form-control ml-7">
-                <label className="label">
-                  <span className="label-text text-slate-300 font-medium">Password</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input input-bordered bg-slate-900 border-slate-700 text-white focus:border-primary"
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary ml-7 w-[85%] h-12 text-lg font-semibold transition-all hover:scale-[1.02]"
-                disabled={loading}
-              >
-                {loading ? <LoadingSpinner size="sm" /> : "Sign In"}
-              </button>
-            </form>
-          )}
-
-          <div className="divider text-slate-200 text-xs uppercase tracking-widest">Quick Access</div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Link to="/" className="btn btn-outline btn-sm border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white">
-              🏠 Home
-            </Link>
-            <Link to="/browse" className="btn btn-outline btn-sm border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white">
-              🔍 Browse
-            </Link>
+            </button>
           </div>
+        </form>
 
-          {/* Admin Features Info */}
-          <div className="mt-8 p-4 bg-slate-900/50 border border-slate-700 rounded-xl">
-            <h4 className="text-slate-200 font-semibold text-xs uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-1 h-1 bg-primary rounded-full"></span>
-              Admin Capabilities
-            </h4>
-            <ul className="text-[11px] space-y-2 text-slate-400">
-              <li className="flex items-center gap-2">
-                <span className="text-primary">✓</span> Meal CRUD & Bulk Import
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-primary">✓</span> Analytics & Ratings
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-primary">✓</span> ML Integration Monitoring
-              </li>
-            </ul>
-          </div>
+        <div className="mt-8 text-center">
+          <Link to="/" className="text-primary text-sm font-medium hover:text-primary-hover transition-colors">
+            ← Back to Home
+          </Link>
         </div>
       </div>
     </div>

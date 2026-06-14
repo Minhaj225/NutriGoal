@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { mealAPI, apiUtils } from "../services/api";
 import MealCard from "../components/meals/MealCard";
-import LoadingSpinner from "../components/common/LoadingSpinner";
+import Skeleton from "../components/common/Skeleton";
 import ErrorMessage from "../components/common/ErrorMessage";
+import { useStaggeredEntry } from "../hooks/useStaggeredEntry";
 
 const BrowseMeals = () => {
   const [meals, setMeals] = useState([]);
@@ -21,21 +22,10 @@ const BrowseMeals = () => {
   const [userEmail, setUserEmail] = useState("");
   const [sortBy, setSortBy] = useState("popularity");
 
-  const cuisineOptions = [
-    "",
-    "North Indian",
-    "South Indian",
-    "Street Food",
-    "General",
-  ];
-  const categoryOptions = [
-    "",
-    "Main Dish",
-    "Breakfast",
-    "Snack",
-    "Side Dish",
-    "Staple",
-  ];
+  const gridRef = useStaggeredEntry([meals]);
+
+  const cuisineOptions = ["", "North Indian", "South Indian", "Street Food", "General"];
+  const categoryOptions = ["", "Main Dish", "Breakfast", "Snack", "Side Dish", "Staple"];
   const dietOptions = ["", "Vegetarian", "Non-Vegetarian"];
   const sortOptions = [
     { value: "popularity", label: "Popularity" },
@@ -67,12 +57,9 @@ const BrowseMeals = () => {
         let sortedMeals = [...response.meals];
         setTotalPages(response.totalPages || 1);
 
-        // Apply sorting
         switch (sortBy) {
           case "rating":
-            sortedMeals.sort(
-              (a, b) => (b.averageRating || 0) - (a.averageRating || 0)
-            );
+            sortedMeals.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
             break;
           case "calories":
             sortedMeals.sort((a, b) => a.calories - b.calories);
@@ -80,10 +67,8 @@ const BrowseMeals = () => {
           case "protein":
             sortedMeals.sort((a, b) => b.protein - a.protein);
             break;
-          default: // popularity
-            sortedMeals.sort(
-              (a, b) => (b.popularity || 0) - (a.popularity || 0)
-            );
+          default:
+            sortedMeals.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
         }
 
         setMeals(sortedMeals);
@@ -123,258 +108,227 @@ const BrowseMeals = () => {
   };
 
   return (
-    <div className="min-h-screen bg-base-200 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">Browse All Meals</h1>
-          <p className="text-lg text-gray-600">
-            Explore our comprehensive collection of delicious and nutritious
-            meals
+    <main className="min-h-screen bg-background py-12 text-text-primary">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Browse All Meals</h1>
+          <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
+            Explore our comprehensive collection of delicious and nutritious meals
           </p>
         </div>
 
         {/* Filters */}
-        <div className="card bg-base-100 shadow-xl mb-8">
-          <div className="card-body">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="card-title font-bold">Filter & Search</h3>
-              <button onClick={clearFilters} className="btn btn-sm btn-outline">
-                Clear All Filters
-              </button>
+        <section className="bg-surface rounded-2xl border border-border p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-text-primary">Filter & Search</h3>
+            <button
+              onClick={clearFilters}
+              className="text-primary hover:text-primary-hover text-sm font-medium"
+            >
+              Clear Filters
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Cuisine</label>
+              <select
+                value={filters.cuisine}
+                onChange={(e) => handleFilterChange("cuisine", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
+              >
+                {cuisineOptions.map((option) => (
+                  <option key={option} value={option}>{option || "All Cuisines"}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Cuisine</span>
-                </label>
-                <select
-                  value={filters.cuisine}
-                  onChange={(e) =>
-                    handleFilterChange("cuisine", e.target.value)
-                  }
-                  className="select select-bordered select-sm"
-                >
-                  {cuisineOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option || "All Cuisines"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Category</span>
-                </label>
-                <select
-                  value={filters.category}
-                  onChange={(e) =>
-                    handleFilterChange("category", e.target.value)
-                  }
-                  className="select select-bordered select-sm"
-                >
-                  {categoryOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option || "All Categories"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Diet</span>
-                </label>
-                <select
-                  value={filters.dietaryPreference}
-                  onChange={(e) =>
-                    handleFilterChange("dietaryPreference", e.target.value)
-                  }
-                  className="select select-bordered select-sm"
-                >
-                  {dietOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option || "All Diets"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Min Calories</span>
-                </label>
-                <input
-                  type="number"
-                  value={filters.minCalories}
-                  onChange={(e) =>
-                    handleFilterChange("minCalories", e.target.value)
-                  }
-                  className="input input-bordered input-sm"
-                  placeholder="e.g., 100"
-                />
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Max Calories</span>
-                </label>
-                <input
-                  type="number"
-                  value={filters.maxCalories}
-                  onChange={(e) =>
-                    handleFilterChange("maxCalories", e.target.value)
-                  }
-                  className="input input-bordered input-sm"
-                  placeholder="e.g., 500"
-                />
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Min Protein (g)</span>
-                </label>
-                <input
-                  type="number"
-                  value={filters.minProtein}
-                  onChange={(e) =>
-                    handleFilterChange("minProtein", e.target.value)
-                  }
-                  className="input input-bordered input-sm"
-                  placeholder="e.g., 10"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Category</label>
+              <select
+                value={filters.category}
+                onChange={(e) => handleFilterChange("category", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
+              >
+                {categoryOptions.map((option) => (
+                  <option key={option} value={option}>{option || "All Categories"}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="flex justify-between items-center mt-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Sort by</span>
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="select select-bordered select-sm"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Diet</label>
+              <select
+                value={filters.dietaryPreference}
+                onChange={(e) => handleFilterChange("dietaryPreference", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
+              >
+                {dietOptions.map((option) => (
+                  <option key={option} value={option}>{option || "All Diets"}</option>
+                ))}
+              </select>
+            </div>
 
-               <div className="text-right">
-                 <p className="text-sm text-gray-600">
-                   Found {meals.length} meals on page {page} of {totalPages}
-                 </p>
-               </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Min Calories</label>
+              <input
+                type="number"
+                value={filters.minCalories}
+                onChange={(e) => handleFilterChange("minCalories", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                placeholder="e.g., 100"
+              />
+            </div>
 
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Max Calories</label>
+              <input
+                type="number"
+                value={filters.maxCalories}
+                onChange={(e) => handleFilterChange("maxCalories", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                placeholder="e.g., 500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">Min Protein (g)</label>
+              <input
+                type="number"
+                value={filters.minProtein}
+                onChange={(e) => handleFilterChange("minProtein", e.target.value)}
+                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                placeholder="e.g., 10"
+              />
             </div>
           </div>
-        </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-6 border-t border-border">
+            <div className="mb-4 sm:mb-0">
+              <label className="block text-sm font-medium text-text-secondary mb-2">Sort by</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full sm:w-auto bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="text-text-muted text-sm">
+              Found {meals.length} meals on page {page} of {totalPages}
+            </div>
+          </div>
+        </section>
 
         {/* Email Input for Rating */}
         {!userEmail && (
-          <div className="alert alert-info mb-8 bg-stone-600">
-            <div>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                className="stroke-current flex-shrink-0 w-6 h-6"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
+          <section className="bg-primary-muted border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between mb-8">
+            <div className="flex items-start sm:items-center mb-4 sm:mb-0">
+              <svg className="w-5 h-5 text-primary mr-3 mt-0.5 sm:mt-0 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div className="text-white">
-                <p>Want to rate meals? Enter your email:</p>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Want to rate meals? Enter your email:</p>
                 <input
                   type="email"
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
-                  className="input input-bordered input-sm mt-2"
+                  className="w-full sm:w-64 bg-surface border border-border rounded-lg px-4 py-2 mt-2 text-sm text-text-primary focus:border-primary outline-none transition-colors"
                   placeholder="your-email@example.com"
                 />
               </div>
             </div>
-            <div className="flex-none">
-              <button
-                onClick={() => localStorage.setItem("userEmail", userEmail)}
-                className="btn btn-sm text-white"
-                disabled={!apiUtils.validateEmail(userEmail)}
-              >
-                Save
-              </button>
-            </div>
-          </div>
+            <button
+              onClick={() => localStorage.setItem("userEmail", userEmail)}
+              className="w-full sm:w-auto px-6 py-2.5 bg-primary text-white font-medium rounded-full hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!apiUtils.validateEmail(userEmail)}
+            >
+              Save Email
+            </button>
+          </section>
         )}
 
         {/* Error Display */}
         {error && <ErrorMessage message={error} onRetry={fetchMeals} />}
 
         {/* Loading State */}
-        {loading && <LoadingSpinner message="Loading delicious meals..." />}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-12">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} variant="card" />
+            ))}
+          </div>
+        )}
 
-         {/* Meals Grid */}
-         {!loading && meals.length > 0 && (
-           <>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-               {meals.map((meal) => (
-                 <MealCard
-                   key={meal._id}
-                   meal={meal}
-                   onRate={handleRating}
-                   showRating={true}
-                   userEmail={userEmail}
-                 />
-               ))}
-             </div>
+        {/* Meals Grid */}
+        {!loading && meals.length > 0 && (
+          <>
+            <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {meals.map((meal) => (
+                <MealCard
+                  key={meal._id}
+                  meal={meal}
+                  onRate={handleRating}
+                  showRating={true}
+                  userEmail={userEmail}
+                />
+              ))}
+            </div>
 
-             {/* Pagination Controls */}
-             <div className="flex justify-center items-center gap-4 mt-12 mb-8">
-               <button
-                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                 disabled={page === 1}
-                 className="btn btn-outline btn-md"
-               >
-                 Previous
-               </button>
-               <span className="font-medium text-lg">
-                 Page {page} of {totalPages}
-               </span>
-               <button
-                 onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                 disabled={page === totalPages}
-                 className="btn btn-outline btn-md"
-               >
-                 Next
-               </button>
-             </div>
-           </>
-         )}
-
+            {/* Pagination Controls */}
+            <div className="flex justify-center items-center gap-4 mt-12 mb-8">
+              <button
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+                className="border border-border rounded-lg px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-alt disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    p === page
+                      ? "bg-primary text-white"
+                      : "border border-border text-text-primary hover:bg-surface-alt"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={page === totalPages}
+                className="border border-border rounded-lg px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-alt disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
 
         {/* Empty State */}
         {!loading && meals.length === 0 && !error && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🍽️</div>
-            <h3 className="text-2xl font-bold mb-2">No Meals Found</h3>
-            <p className="text-gray-600 mb-6">
+          <section className="text-center py-16 bg-surface rounded-2xl border border-border">
+            <div className="text-5xl mb-6">🍽️</div>
+            <h3 className="text-2xl font-semibold mb-3">No Meals Found</h3>
+            <p className="text-text-secondary mb-8 max-w-md mx-auto">
               Try adjusting your filters to see more results
             </p>
-            <button onClick={clearFilters} className="btn btn-primary">
+            <button
+              onClick={clearFilters}
+              className="px-6 py-2.5 bg-primary text-white rounded-full font-medium hover:bg-primary-hover transition-colors"
+            >
               Clear All Filters
             </button>
-          </div>
+          </section>
         )}
       </div>
-    </div>
+    </main>
   );
 };
 

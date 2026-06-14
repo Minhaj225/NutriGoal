@@ -81,3 +81,7 @@ ml/.venv/
 **/.env.*.local
 **/.env.production
 **/.env.development
+
+Scaling.md
+TEST_INFRA.md
+.agents/
