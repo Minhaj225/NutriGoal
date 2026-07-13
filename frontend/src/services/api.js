@@ -87,7 +87,7 @@ export const mealAPI = {
   },
 
   // Get all meals with filtering
-  getMeals: async (filters = {}, page = 1, limit = 20) => {
+  getMeals: async (filters = {}, page = 1, limit = 20, sortBy = "popularity") => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -96,6 +96,7 @@ export const mealAPI = {
     });
     params.append('page', page);
     params.append('limit', limit);
+    params.append('sortBy', sortBy);
     
     const response = await api.get(`/meals?${params}`);
     return response.data;

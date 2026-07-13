@@ -20,29 +20,24 @@ const Home = () => {
         setLoading(true);
 
         const [infoRes, healthRes, statsRes, mealsRes] = await Promise.all([
-          systemAPI.getApiInfo().catch(() => ({ data: { mlIntegration: { enabled: false } } })),
-          systemAPI.healthCheck().catch(() => ({ data: { status: "error" } })),
-          mealAPI.getStats().catch(() => ({ data: null })),
-          mealAPI.getMeals({ limit: 6 }).catch(() => ({ data: { meals: [] } })),
+          systemAPI.getApiInfo().catch(() => ({ mlIntegration: { enabled: false } })),
+          systemAPI.healthCheck().catch(() => ({ status: "error" })),
+          mealAPI.getStats().catch(() => ({ stats: null })),
+          mealAPI.getMeals({ limit: 3, sortBy: 'popularity' }).catch(() => ({ meals: [] })),
         ]);
 
-        if (statsRes.data) {
+        if (statsRes.stats) {
           setStats({
-            ...statsRes.data,
-            healthySystem: healthRes.data?.status === "ok",
+            ...statsRes.stats,
+            healthySystem: healthRes.status === "healthy",
           });
         }
 
-        if (mealsRes.data?.meals) {
-          const sorted = [...mealsRes.data.meals].sort((a, b) => {
-            const scoreA = (a.averageRating || 0) + (a.popularity || 0) * 0.1;
-            const scoreB = (b.averageRating || 0) + (b.popularity || 0) * 0.1;
-            return scoreB - scoreA;
-          });
-          setFeaturedMeals(sorted.slice(0, 3));
+        if (mealsRes.meals && mealsRes.meals.length > 0) {
+          setFeaturedMeals(mealsRes.meals);
         }
 
-        setApiInfo(infoRes.data);
+        setApiInfo(infoRes);
       } catch (err) {
         console.error("Error fetching home data:", err);
         setError("Failed to load dashboard data. Please check connection.");

@@ -81,7 +81,7 @@ function resolveCsvPath() {
 
 async function seedMeals() {
   try {
-    console.log("🌱 Starting meal seeding process...");
+    console.log("Starting meal seeding process...");
 
     // Read the CSV file from ML directory
     const csvPath = resolveCsvPath();
@@ -98,7 +98,7 @@ async function seedMeals() {
 
     // Clear existing meals
     await Meal.deleteMany({});
-    console.log("🗑️  Cleared existing meals");
+    console.log("Cleared existing meals");
 
     const meals = [];
 
@@ -116,7 +116,7 @@ async function seedMeals() {
         const protein = parseFloat(values[4]?.replace(/"/g, "")) || 0;
         const carbs = parseFloat(values[5]?.replace(/"/g, "")) || 0;
         const fats = parseFloat(values[6]?.replace(/"/g, "")) || 0;
-        const dietPref = values[7]?.replace(/"/g, "") || "Vegetarian";
+        const dietPref = values[7]?.replace(/"/g, "") || "Non-Vegetarian";
 
         if (!foodName || calories <= 0) continue;
 
@@ -145,7 +145,7 @@ async function seedMeals() {
 
         meals.push(meal);
       } catch (parseError) {
-        console.warn(`⚠️  Skipping invalid row ${i}: ${parseError.message}`);
+        console.warn(`Skipping invalid row ${i}: ${parseError.message}`);
         continue;
       }
     }
@@ -160,18 +160,18 @@ async function seedMeals() {
         await Meal.insertMany(batch, { ordered: false });
         insertedCount += batch.length;
         console.log(
-          `📦 Inserted batch ${Math.ceil((i + batchSize) / batchSize)}: ${batch.length} meals`,
+          `Inserted batch ${Math.ceil((i + batchSize) / batchSize)}: ${batch.length} meals`,
         );
       } catch (batchError) {
         console.warn(
-          `⚠️  Batch ${Math.ceil((i + batchSize) / batchSize)} had some errors, continuing...`,
+          `Batch ${Math.ceil((i + batchSize) / batchSize)} had some errors, continuing...`,
         );
         insertedCount += batch.length;
       }
     }
 
     console.log(
-      `✅ Successfully seeded ${insertedCount} meals to the database`,
+      `Successfully seeded ${insertedCount} meals to the database`,
     );
 
     // Display summary statistics
@@ -189,15 +189,15 @@ async function seedMeals() {
       { $group: { _id: "$dietaryPreference", count: { $sum: 1 } } },
     ]);
 
-    console.log("\n📊 Seeding Summary:");
+    console.log("\nSeeding Summary:");
     console.log("Cuisine Distribution:", cuisineStats);
     console.log("Category Distribution:", categoryStats);
     console.log("Diet Distribution:", dietStats);
   } catch (error) {
-    console.error("❌ Error seeding meals:", error.message);
+    console.error("Error seeding meals:", error.message);
   } finally {
     mongoose.connection.close();
-    console.log("🔐 Database connection closed");
+    console.log("Database connection closed");
   }
 }
 

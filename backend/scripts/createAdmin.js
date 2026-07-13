@@ -5,14 +5,14 @@ require('dotenv').config();
 async function createAdmin() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
 
     const username = process.env.ADMIN_USERNAME ;
     const password = process.env.ADMIN_PASSWORD ;
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      console.log(`❌ User ${username} already exists.`);
+      console.log(`User ${username} already exists.`);
       process.exit(0);
     }
 
@@ -23,9 +23,9 @@ async function createAdmin() {
     });
 
     await admin.save();
-    console.log(`✅ Admin user created successfully!\nUsername: ${username}\nPassword: ${password}`);
+    console.log('Admin user created successfully!');
   } catch (err) {
-    console.error('❌ Error creating admin:', err);
+    console.error('Error creating admin:', err);
   } finally {
     await mongoose.connection.close();
   }

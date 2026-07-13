@@ -7,9 +7,19 @@ const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
 
 const ML_API_URL = process.env.ML_API_URL || "http://localhost:5000";
 
-// Get meal statistics for home page
+// Simple in-memory cache for stats
+let cachedStats = null;
+let lastStatsCacheTime = 0;
+const STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Get meal statistics
 router.get("/stats", async (req, res) => {
   try {
+    const now = Date.now();
+    if (cachedStats && (now - lastStatsCacheTime < STATS_CACHE_TTL)) {
+      return res.json({ success: true, stats: cachedStats });
+    }
+
     const stats = await Meal.aggregate([
       { $match: { isActive: true } },
       {
@@ -33,15 +43,18 @@ router.get("/stats", async (req, res) => {
     const averageRating = stats[0].avgRating[0]?.avg || 0;
     const topCuisine = stats[0].topCuisine[0]?._id || "N/A";
 
+    cachedStats = {
+      totalMeals: total,
+      cuisineCount,
+      categoryCount,
+      averageRating,
+      topCuisine,
+    };
+    lastStatsCacheTime = now;
+
     res.json({
       success: true,
-      stats: {
-        totalMeals: total,
-        cuisineCount,
-        categoryCount,
-        averageRating,
-        topCuisine,
-      },
+      stats: cachedStats,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -80,7 +93,7 @@ router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
 // Get all meals with filtering
 router.get("/", async (req, res) => {
   try {
-    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein, page = 1, limit = 20 } = req.query;
+    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein, sortBy = "popularity", page = 1, limit = 20 } = req.query;
     
     let filter = { isActive: true };
     
@@ -95,9 +108,17 @@ router.get("/", async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
+    const sortOptions = {
+      popularity: { popularity: -1, averageRating: -1 },
+      rating: { averageRating: -1 },
+      calories: { calories: 1 },
+      protein: { protein: -1 },
+    };
+    const sort = sortOptions[sortBy] || sortOptions.popularity;
+
     const total = await Meal.countDocuments(filter);
     const meals = await Meal.find(filter)
-      .sort({ popularity: -1, averageRating: -1 })
+      .sort(sort)
       .skip(skip)
       .limit(limitNum);
     
@@ -171,7 +192,10 @@ router.get("/recommend/:email", async (req, res) => {
       mealFilter.protein = { $gte: student.nutritionGoals.minProteinPerMeal };
     }
 
-    const meals = await Meal.find(mealFilter);
+    // Limit to top 100 candidates based on general popularity and rating to save memory and ML processing
+    const meals = await Meal.find(mealFilter)
+      .sort({ averageRating: -1, popularity: -1 })
+      .limit(100);
     
     if (meals.length === 0) {
       return res.json({
@@ -349,7 +373,7 @@ router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
     
     res.json({
       success: true,
-      message: "Meal deactivated successfully"
+      message: "Meal deleted successfully"
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

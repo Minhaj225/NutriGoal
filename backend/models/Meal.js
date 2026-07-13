@@ -38,5 +38,8 @@ const mealSchema = new mongoose.Schema({
 // Index for better query performance
 mealSchema.index({ cuisine: 1, category: 1, dietaryPreference: 1 });
 mealSchema.index({ calories: 1, protein: 1 });
+mealSchema.index({ popularity: -1, averageRating: -1 });
+mealSchema.index({ averageRating: -1 });
+mealSchema.index({ protein: -1 });
 
 module.exports = mongoose.model("Meal", mealSchema);

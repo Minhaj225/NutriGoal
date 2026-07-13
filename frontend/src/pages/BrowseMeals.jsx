@@ -19,8 +19,17 @@ const BrowseMeals = () => {
     maxCalories: "",
     minProtein: "",
   });
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [userEmail, setUserEmail] = useState("");
   const [sortBy, setSortBy] = useState("popularity");
+
+  // Debounce filters
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   const gridRef = useStaggeredEntry([meals]);
 
@@ -44,34 +53,18 @@ const BrowseMeals = () => {
 
   useEffect(() => {
     fetchMeals();
-  }, [filters, sortBy, page]);
+  }, [debouncedFilters, sortBy, page]);
 
   const fetchMeals = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await mealAPI.getMeals(filters, page);
+      const response = await mealAPI.getMeals(debouncedFilters, page, 20, sortBy);
 
       if (response.success) {
-        let sortedMeals = [...response.meals];
         setTotalPages(response.totalPages || 1);
-
-        switch (sortBy) {
-          case "rating":
-            sortedMeals.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-            break;
-          case "calories":
-            sortedMeals.sort((a, b) => a.calories - b.calories);
-            break;
-          case "protein":
-            sortedMeals.sort((a, b) => b.protein - a.protein);
-            break;
-          default:
-            sortedMeals.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-        }
-
-        setMeals(sortedMeals);
+        setMeals(response.meals);
       } else {
         setError("Failed to fetch meals");
       }

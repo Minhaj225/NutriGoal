@@ -48,7 +48,6 @@ router.post("/", async (req, res) => {
 router.get("/:email", async (req, res) => {
   try {
     const student = await Student.findOne({ email: req.params.email })
-      .populate('mealHistory.mealId');
     
     if (!student) {
       return res.status(404).json({ error: "Student not found" });

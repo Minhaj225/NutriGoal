@@ -15,9 +15,7 @@ const app = express();
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || "http://localhost:5173",
-    "https://meal-recommender-nine.vercel.app",
-    "https://meal-recommender-backend.vercel.app",
-    /\.vercel\.app$/
+    "https://nutrigoalfrontend.vercel.app"
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -136,39 +134,39 @@ app.use((err, req, res, next) => {
   });
 });
 
-// DB Connection with better error handling
+// DB Connection
 if (process.env.NODE_ENV !== 'test') {
   mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
   .then(() => {
-    console.log("✅ MongoDB connected successfully");
-    console.log(`📊 Database: ${mongoose.connection.db.databaseName}`);
+    console.log("MongoDB connected successfully");
+    console.log(`Database: ${mongoose.connection.db.databaseName}`);
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
+    console.error("MongoDB connection error:", err);
     process.exit(1);
   });
 }
 
 // MongoDB connection event handlers
 mongoose.connection.on('disconnected', () => {
-  console.log('📡 MongoDB disconnected');
+  console.log('MongoDB disconnected');
 });
 
 mongoose.connection.on('reconnected', () => {
-  console.log('🔄 MongoDB reconnected');
+  console.log('MongoDB reconnected');
 });
 
 const PORT = process.env.PORT || 5001;
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🤖 ML API URL: ${process.env.ML_API_URL || 'http://localhost:5000'}`);
-    console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`ML API URL: ${process.env.ML_API_URL || 'http://localhost:5000'}`);
+    console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   });
 }
 
