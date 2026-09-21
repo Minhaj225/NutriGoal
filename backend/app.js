@@ -17,7 +17,7 @@ const app = express();
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || "http://localhost:5173",
-    "https://nutrigoalfrontend.vercel.app"
+    "https://nutrigoalmain.vercel.app"
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
