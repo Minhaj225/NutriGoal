@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
+const { Redis } = require("@upstash/redis");
+const RedisStore = require("rate-limit-redis");
 require("dotenv").config();
 
 const studentRoutes = require("./routes/studentRoutes");
@@ -25,7 +27,26 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Global Rate Limiting
-const limiter = rateLimit({
+
+// Redis client for rate limiting - using Upstash Redis for Vercel compatibility
+let redisStore;
+try {
+  const redisClient = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+  redisStore = new RedisStore({
+    sendCommand: (command, ...args) => redisClient.call(command, ...args),
+    prefix: "rl:",
+  });
+} catch (err) {
+  console.warn(
+    "Upstash Redis unavailable, falling back to memory store:",
+    err.message,
+  );
+}
+
+const limiterOptions = {
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
   message: {
@@ -33,7 +54,13 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-});
+};
+
+// Use Redis store if available, otherwise fall back to memory store
+if (redisStore) {
+  limiterOptions.store = redisStore;
+}
+const limiter = rateLimit(limiterOptions);
 app.use(limiter);
 
 // Request logging middleware
