@@ -1,6 +1,8 @@
+process.env.NODE_ENV = 'test';
+
 const request = require('supertest');
-const mongoose = require('mongoose');
-const app = require('../app'); // Note: we need to export app from app.js
+const { connectTestDatabase, cleanupTestDatabase } = require('./setup');
+const app = require('../app');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const jwt = require('jsonwebtoken');
@@ -9,17 +11,8 @@ describe('Security API Tests', () => {
   let adminToken;
 
   beforeAll(async () => {
-    // Increase timeout for DB connection
-    jest.setTimeout(30000);
-    
-    // Connect to a test database
-    const url = process.env.MONGO_URI || 'mongodb://localhost:27017/nutrigoal_test';
-    try {
-      await mongoose.connect(url);
-    } catch (err) {
-      console.error('Test DB Connection Error:', err);
-      throw err;
-    }
+    await connectTestDatabase();
+    await Promise.all([User.init(), Student.init()]);
 
     // Create an admin user
     const admin = new User({
@@ -38,9 +31,7 @@ describe('Security API Tests', () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Student.deleteMany({});
-    await mongoose.connection.close();
+    await cleanupTestDatabase();
   });
 
   test('P0: Should block unauthorized access to admin routes', async () => {

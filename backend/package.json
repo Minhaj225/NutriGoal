@@ -7,7 +7,7 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "vercel-build": "echo 'Backend build complete'",
-    "test": "jest",
+    "test": "jest --runInBand",
     "seed": "node scripts/seedMeals.js",
     "create-admin": "node scripts/createAdmin.js"
   },
