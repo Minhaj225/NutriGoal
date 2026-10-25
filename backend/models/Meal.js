@@ -29,6 +29,13 @@ const mealSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   nutritionScore: { type: Number, min: 0, max: 10 },
   popularity: { type: Number, default: 0 },
+  ratingSum: { type: Number, default: 0 },
+  ratingSummaryVersion: Number,
+  legacyRatingSummary: {
+    averageRating: Number,
+    totalRatings: Number,
+    popularity: Number,
+  },
   averageRating: { type: Number, min: 0, max: 5, default: 0 },
   totalRatings: { type: Number, default: 0 }
 }, {

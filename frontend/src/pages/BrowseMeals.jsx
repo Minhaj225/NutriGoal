@@ -90,12 +90,15 @@ const BrowseMeals = () => {
     setPage(1);
   };
 
-  const handleRating = (mealId, rating) => {
+  const handleRating = async (mealId, rating) => {
+    const saved = await mealAPI.rateMeal(mealId, rating);
     setMeals((prev) =>
       prev.map((meal) =>
-        meal._id === mealId ? { ...meal, userRating: rating } : meal
+        meal._id === mealId ? { ...meal, userRating: rating, averageRating: saved.newAverageRating,
+          totalRatings: saved.totalRatings, ratingSum: saved.ratingSum } : meal
       )
     );
+    return saved;
   };
 
   return (

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Meal = require("../models/Meal");
 const Student = require("../models/Student");
+const { recordMealFeedback } = require('../services/feedback');
 const axios = require("axios");
 const { authenticateToken, authorizeAdmin, requireStudent } = require("../middleware/auth");
 const { cuisines, categories, diets, email, id, integer, number, query, choice, invalid, keys, meal: validateMeal } = require('../validation');
@@ -290,43 +291,12 @@ router.post("/:id/rate", authenticateToken, requireStudent, async (req, res, nex
     const { rating } = req.body;
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) invalid('Rating must be an integer between 1 and 5');
     const mealId = id(req.params.id);
-    
-    const meal = await Meal.findById(mealId);
-    if (!meal) {
-      return res.status(404).json({ error: "Meal not found" });
-    }
-
-    // Update meal rating
-    const newTotalRatings = meal.totalRatings + 1;
-    const newAverageRating = (meal.averageRating * meal.totalRatings + rating) / newTotalRatings;
-    
-    meal.averageRating = parseFloat(newAverageRating.toFixed(2));
-    meal.totalRatings = newTotalRatings;
-    meal.popularity += 1;
-    
-    await meal.save();
-
-    // Update student meal history
-    {
-      const student = await Student.findOne({ userId: req.user.id });
-      if (student) {
-        await student.updateOne({
-          $push: {
-            mealHistory: {
-              mealId: meal._id,
-              liked: rating >= 3,
-              consumedAt: new Date()
-            }
-          }
-        });
-      }
-    }
+    const result = await recordMealFeedback({ studentId: req.user.id, mealId, rating });
 
     res.json({
       success: true,
       message: "Rating recorded successfully",
-      newAverageRating: meal.averageRating,
-      totalRatings: meal.totalRatings
+      ...result
     });
   } catch (err) { next(err); }
 });

@@ -137,6 +137,7 @@ app.use((err, req, res, next) => {
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid request body' });
   if (err.status === 400) return res.status(400).json({ error: err.message || 'Invalid request' });
   if (err.status === 403) return res.status(403).json({ error: err.message });
+  if (err.status === 404) return res.status(404).json({ error: err.message });
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {

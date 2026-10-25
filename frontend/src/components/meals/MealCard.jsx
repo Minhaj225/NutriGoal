@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { mealAPI, studentAPI, apiUtils } from "../../services/api";
+import React, { useEffect, useState } from "react";
+import { apiUtils } from "../../services/api";
 import { readSession } from '../../services/session';
 
 const MealCard = ({
@@ -11,7 +11,18 @@ const MealCard = ({
 }) => {
   const [rating, setRating] = useState(0);
   const [isRating, setIsRating] = useState(false);
+  const [isFeedback, setIsFeedback] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const resetForAccount = () => { setRating(0); setFeedback(null); setError(''); };
+    window.addEventListener('adminLoginChange', resetForAccount);
+    window.addEventListener('storage', resetForAccount);
+    return () => {
+      window.removeEventListener('adminLoginChange', resetForAccount);
+      window.removeEventListener('storage', resetForAccount);
+    };
+  }, []);
   const servingSizeLabel = meal.servingSize?.trim() || "1 serving";
   const gramsMatch = servingSizeLabel.match(/\((\d+(?:\.\d+)?)\s*g\)/i);
   const proteinContext = gramsMatch
@@ -20,30 +31,32 @@ const MealCard = ({
 
   const handleRating = async (newRating) => {
     if (readSession()?.role !== 'student') {
-      alert('Sign in as a student to rate meals');
+      setError('Sign in as a student to rate meals');
       return;
     }
 
     setIsRating(true);
+    setError('');
     try {
-      await mealAPI.rateMeal(meal._id, newRating);
+      await onRate(meal._id, newRating);
       setRating(newRating);
-      if (onRate) onRate(meal._id, newRating);
-
-      if (showFeedback) {
-        const liked = newRating >= 3;
-        if (onFeedback) {
-          await onFeedback(meal._id, liked);
-        } else {
-          await studentAPI.recordFeedback(meal._id, liked);
-        }
-        setFeedback(liked);
-      }
     } catch (error) {
-      console.error("Error rating meal:", error);
-      alert("Failed to submit rating");
+      setError(`Failed to submit rating: ${apiUtils.handleError(error)}`);
     } finally {
       setIsRating(false);
+    }
+  };
+
+  const handleFeedback = async (liked) => {
+    setIsFeedback(true);
+    setError('');
+    try {
+      await onFeedback(meal._id, liked);
+      setFeedback(liked);
+    } catch (error) {
+      setError(`Failed to save feedback: ${apiUtils.handleError(error)}`);
+    } finally {
+      setIsFeedback(false);
     }
   };
 
@@ -115,6 +128,7 @@ const MealCard = ({
                 <button
                   key={star}
                   type="button"
+                  aria-label={`Rate ${star} star${star === 1 ? '' : 's'}`}
                   onClick={() => handleRating(star)}
                   disabled={isRating}
                   className={`focus:outline-none text-2xl transition-all active:scale-[0.90] ${
@@ -133,15 +147,22 @@ const MealCard = ({
           </div>
         )}
 
+        {showFeedback && <div className="mt-3 flex justify-center gap-3">
+          <button type="button" disabled={isFeedback} onClick={() => handleFeedback(true)}
+            className="rounded-full border border-border px-3 py-1 text-sm disabled:opacity-50">Like</button>
+          <button type="button" disabled={isFeedback} onClick={() => handleFeedback(false)}
+            className="rounded-full border border-border px-3 py-1 text-sm disabled:opacity-50">Dislike</button>
+        </div>}
+
+        {error && <p role="alert" className="mt-3 text-sm text-error">{error}</p>}
+
         {feedback !== null && (
           <div className={`mt-3 p-2 rounded-lg text-xs text-center ${
             feedback 
               ? "bg-primary-muted text-primary" 
               : "bg-warning-muted text-warning"
           }`}>
-            {feedback
-              ? "👍 Added to favorites!"
-              : "👎 We'll improve recommendations"}
+            {feedback ? '👍 Preference saved' : '👎 Preference saved'}
           </div>
         )}
       </div>

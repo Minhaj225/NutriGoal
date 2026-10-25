@@ -70,20 +70,23 @@ const Recommendations = () => {
     }
   };
 
-  const handleRating = (mealId, rating) => {
+  const handleRating = async (mealId, rating) => {
+    const saved = await mealAPI.rateMeal(mealId, rating);
       setRecommendations((prev) =>
         prev.map((meal) =>
-          meal._id === mealId ? { ...meal, userRating: rating } : meal
+          meal._id === mealId ? { ...meal, userRating: rating, averageRating: saved.newAverageRating,
+            totalRatings: saved.totalRatings, ratingSum: saved.ratingSum } : meal
         )
       );
       setSuccess(`✅ Rating submitted! You gave ${rating} star${rating !== 1 ? "s" : ""}.`);
       setError("");
       setTimeout(() => setSuccess(""), 3000);
+    return saved;
   };
 
   const handleFeedback = async (mealId, liked) => {
     try {
-      await studentAPI.recordFeedback(mealId, liked);
+      const saved = await studentAPI.recordFeedback(mealId, liked);
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userFeedback: liked } : meal
@@ -92,10 +95,12 @@ const Recommendations = () => {
       setSuccess(`✅ Feedback recorded! You ${liked ? "liked" : "disliked"} this meal.`);
       setError("");
       setTimeout(() => setSuccess(""), 3000);
+      return saved;
     } catch (error) {
       console.error("Failed to record feedback:", error);
       setError(`Failed to record feedback: ${apiUtils.handleError(error)}`);
       setSuccess("");
+      throw error;
     }
   };
 
