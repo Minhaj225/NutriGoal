@@ -223,6 +223,7 @@ npm run create-admin
 
 ### Auth
 - `POST /auth/login` - Admin login (returns JWT)
+- `GET /auth/me` - Current token's confirmed username and role
 
 ### Students
 - `POST /students` - Create or update student profile
@@ -261,10 +262,11 @@ PORT=5001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ML_API_URL=http://localhost:5000
-JWT_SECRET=your_super_secret_key_here
-ADMIN_USERNAME = admin
-ADMIN_PASSWORD = admin123
+JWT_SECRET=
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=
 ```
+Generate `JWT_SECRET` with `openssl rand -base64 48` and set a distinct 12–72 UTF-8 byte admin password before startup. To rotate an existing or legacy admin password, set `ADMIN_ROTATE_PASSWORD=true` for one `npm run create-admin` invocation with the new password, then unset the flag. The script never prints the password.
 
 ### frontend/.env.local
 ```env

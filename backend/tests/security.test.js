@@ -1,4 +1,5 @@
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = require('node:crypto').randomBytes(48).toString('base64');
 
 const request = require('supertest');
 const { connectTestDatabase, cleanupTestDatabase } = require('./setup');
@@ -25,7 +26,7 @@ describe('Security API Tests', () => {
     // Generate token
     adminToken = jwt.sign(
       { id: admin._id, role: 'admin' },
-      process.env.JWT_SECRET || 'default_secret_change_me',
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
   });

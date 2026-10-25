@@ -1,20 +1,33 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const { jwtSecret } = require('../config');
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
+const authenticateToken = async (req, res, next) => {
+  const match = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(req.get('authorization') || '');
+  if (!match) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'default_secret_change_me', (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+  let claims;
+  try {
+    claims = jwt.verify(match[1], jwtSecret, { algorithms: ['HS256'] });
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  if (!/^[a-f0-9]{24}$/.test(claims.id) || typeof claims.role !== 'string') {
+    return res.status(401).json({ error: 'Invalid token claims' });
+  }
+
+  try {
+    const user = await User.findById(claims.id).select('username role');
+    if (!user || user.role !== claims.role) {
+      return res.status(401).json({ error: 'Session no longer valid' });
     }
-    req.user = user;
+    req.user = { id: String(user._id), username: user.username, role: user.role };
     next();
-  });
+  } catch (err) {
+    next(err);
+  }
 };
 
 const authorizeAdmin = (req, res, next) => {

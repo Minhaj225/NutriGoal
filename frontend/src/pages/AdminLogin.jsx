@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { systemAPI } from "../services/api";
+import { saveSession, readSession, clearSession } from '../services/session';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState("");
@@ -9,11 +10,18 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Check if already logged in
   useEffect(() => {
-    if (localStorage.getItem("isAdmin") === "true") {
-      navigate("/admin/meals");
-    }
+    const session = readSession();
+    if (session?.role !== 'admin') return;
+    let active = true;
+    systemAPI.me().then(user => {
+      if (!active) return;
+      if (user.role === 'admin' && user.username === session.username) navigate('/admin/meals');
+      else clearSession();
+    }).catch(() => {
+      if (active) clearSession();
+    });
+    return () => { active = false; };
   }, [navigate]);
 
   const handleSubmit = async (e) => {
@@ -24,71 +32,21 @@ const AdminLogin = () => {
     try {
       const response = await systemAPI.login(username, password);
 
-      if (response.success) {
-        // Store admin status in localStorage
-        localStorage.setItem("isAdmin", "true");
-        localStorage.setItem("adminUser", username);
-
-        // Dispatch custom event to notify Navigation component
-        window.dispatchEvent(new Event("adminLoginChange"));
-
-        // Redirect to admin dashboard
+      if (response.success && response.role === 'admin') {
+        saveSession(response);
         navigate("/admin/meals");
       } else {
-        setError(response.message || "Invalid credentials");
+        setError(response.error || 'Administrative access required');
       }
     } catch (err) {
       setError(
-        err.response?.data?.message ||
+        err.response?.data?.error ||
           "Login failed. Please check your connection."
       );
     } finally {
       setLoading(false);
     }
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAdmin");
-    localStorage.removeItem("adminUser");
-    window.dispatchEvent(new Event("adminLoginChange"));
-    navigate("/");
-  };
-
-  // If already logged in, show logout screen (fallback)
-  if (localStorage.getItem("isAdmin") === "true") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-text-primary px-4">
-        <div className="max-w-md w-full bg-surface rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-border p-8 text-center">
-          {/* Leaf Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 rounded-full bg-primary-muted flex items-center justify-center">
-              <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 2C16 2 28 6 28 16C28 22.627 22.627 28 16 28C9.373 28 4 22.627 4 16C4 10 8 6 12 4" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M16 2C16 2 16 10 16 16" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M16 10C19 7 24 6 24 6" stroke="#10b981" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold text-text-primary mb-2">Admin Dashboard</h2>
-          <p className="mb-8 text-text-secondary text-sm">You are already logged in as admin.</p>
-          <div className="flex flex-col space-y-3">
-            <button
-              onClick={() => navigate("/admin/meals")}
-              className="w-full bg-primary text-white font-medium py-3 rounded-full hover:bg-primary-hover transition-colors"
-            >
-              Go to Dashboard
-            </button>
-            <button
-              onClick={handleLogout}
-              className="w-full bg-surface border border-border font-medium py-3 rounded-full text-text-secondary hover:border-error hover:text-error transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8 text-text-primary">

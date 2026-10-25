@@ -7,27 +7,41 @@ import BrowseMeals from "./pages/BrowseMeals.jsx";
 import AdminMealForm from "./pages/AdminMealForm.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import Navigation from "./components/common/Navigation.jsx";
+import { systemAPI } from './services/api';
+import { readSession } from './services/session';
 
-// Protected Route Component to prevent infinite re-renders
 const ProtectedAdminRoute = ({ children }) => {
-  const [isAdmin, setIsAdmin] = useState(localStorage.getItem("isAdmin") === "true");
+  const [isAdmin, setIsAdmin] = useState(null);
 
   useEffect(() => {
-    // Listen for localStorage changes
-    const handleStorageChange = () => {
-      setIsAdmin(localStorage.getItem("isAdmin") === "true");
+    let request = 0;
+    const checkSession = async () => {
+      const current = ++request;
+      const session = readSession();
+      if (session?.role !== 'admin') {
+        setIsAdmin(false);
+        return;
+      }
+      setIsAdmin(null);
+      try {
+        const user = await systemAPI.me();
+        if (current === request) setIsAdmin(user.role === 'admin' && user.username === session.username);
+      } catch {
+        if (current === request) setIsAdmin(false);
+      }
     };
 
-    // Listen for storage events and custom events
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('adminLoginChange', handleStorageChange);
-    
+    checkSession();
+    window.addEventListener('storage', checkSession);
+    window.addEventListener('adminLoginChange', checkSession);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('adminLoginChange', handleStorageChange);
+      request++;
+      window.removeEventListener('storage', checkSession);
+      window.removeEventListener('adminLoginChange', checkSession);
     };
   }, []);
 
+  if (isAdmin === null) return <div role="status">Checking admin access…</div>;
   return isAdmin ? children : <Navigate to="/admin/login" replace />;
 };
 

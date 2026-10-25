@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { readSession, clearSession } from './session';
 
 // Base API configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -13,9 +14,9 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor for logging
 api.interceptors.request.use((config) => {
-  console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+  const token = readSession()?.token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -23,27 +24,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Avoid redirecting to login if the error occurred during the login request itself
     const isLoginRequest = error.config?.url?.includes('/auth/login');
-    if (!isLoginRequest && (error.response?.status === 401 || error.response?.status === 403)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('isAdmin');
-      window.location.href = '/admin/login';
+    if (!isLoginRequest && error.response?.status === 401 && readSession() &&
+        (window.location.pathname.startsWith('/admin') || error.config?.url === '/auth/me')) {
+      clearSession();
+      if (window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
+        window.location.assign('/admin/login');
+      }
     }
-    console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
-
-// Request interceptor for adding JWT token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
-  return config;
-});
 
 // ML API functions (direct calls to ML service)
 export const mlAPI = {
@@ -221,6 +212,10 @@ export const systemAPI = {
   // Login for admin
   login: async (username, password) => {
     const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  },
+  me: async () => {
+    const response = await api.get('/auth/me');
     return response.data;
   },
   // Health check

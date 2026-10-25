@@ -20,6 +20,8 @@ pids
 node_modules
 dist
 dist-ssr
+frontend/test-results/
+frontend/playwright-report/
 *.local
 
 # Editor directories and files

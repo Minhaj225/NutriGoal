@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { readSession, clearSession } from '../../services/session';
 
 const Navigation = () => {
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState(
-    localStorage.getItem("isAdmin") === "true"
-  );
+  const [isAdmin, setIsAdmin] = useState(readSession()?.role === 'admin');
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -13,7 +12,7 @@ const Navigation = () => {
 
   useEffect(() => {
     const handleAdminChange = () => {
-      setIsAdmin(localStorage.getItem("isAdmin") === "true");
+      setIsAdmin(readSession()?.role === 'admin');
     };
 
     const handleClickOutside = (event) => {
@@ -171,9 +170,7 @@ const Navigation = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           setIsUserMenuOpen(false);
-                          localStorage.removeItem("isAdmin");
-                          localStorage.removeItem("adminUser");
-                          window.dispatchEvent(new Event("adminLoginChange"));
+                          clearSession();
                           window.location.href = "/";
                         }}
                       >
@@ -187,6 +184,7 @@ const Navigation = () => {
                         e.preventDefault();
                         setIsUserMenuOpen(false);
                         localStorage.clear();
+                        clearSession();
                         window.location.href = "/";
                       }}
                     >

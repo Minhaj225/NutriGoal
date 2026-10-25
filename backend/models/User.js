@@ -6,18 +6,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    trim: true
+    trim: true,
+    maxlength: 64
   },
   password: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: value => Buffer.byteLength(value, 'utf8') >= 12 && Buffer.byteLength(value, 'utf8') <= 72,
+      message: 'Password must be 12 to 72 UTF-8 bytes'
+    }
   },
   role: {
     type: String,
     enum: ['admin', 'staff'],
     default: 'staff'
-  },
-  lastLogin: Date
+  }
 }, { timestamps: true });
 
 // Hash password before saving
