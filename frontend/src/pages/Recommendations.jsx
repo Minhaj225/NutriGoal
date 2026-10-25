@@ -5,9 +5,10 @@ import MealCard from "../components/meals/MealCard";
 import Skeleton from "../components/common/Skeleton";
 import ErrorMessage from "../components/common/ErrorMessage";
 import { useStaggeredEntry } from "../hooks/useStaggeredEntry";
+import { readSession } from '../services/session';
 
 const Recommendations = () => {
-  const [email, setEmail] = useState("");
+  const email = readSession()?.email || '';
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,28 +21,15 @@ const Recommendations = () => {
 
   const gridRef = useStaggeredEntry([recommendations]);
 
-  // Load email from URL params or localStorage
   useEffect(() => {
-    const urlEmail = new URLSearchParams(window.location.search).get("email");
-    const savedEmail = localStorage.getItem("userEmail");
-    if (urlEmail) {
-      setEmail(urlEmail);
-      localStorage.setItem("userEmail", urlEmail);
-    } else if (savedEmail) {
-      setEmail(savedEmail);
-    }
-  }, []);
-
-  // Load student profile when email changes
-  useEffect(() => {
-    if (email && apiUtils.validateEmail(email)) {
+    if (email) {
       loadStudentProfile();
     }
   }, [email]);
 
   const loadStudentProfile = async () => {
     try {
-      const response = await studentAPI.getProfile(email);
+      const response = await studentAPI.getProfile();
       if (response.success) {
         setStudent(response.student);
       }
@@ -52,13 +40,8 @@ const Recommendations = () => {
   };
 
   const fetchRecommendations = async () => {
-    if (!email) {
-      setError("Please enter your email address");
-      return;
-    }
-
-    if (!apiUtils.validateEmail(email)) {
-      setError("Please enter a valid email address");
+    if (!student) {
+      setError('Create your profile before requesting recommendations');
       return;
     }
 
@@ -67,9 +50,7 @@ const Recommendations = () => {
     setSuccess("");
 
     try {
-      localStorage.setItem("userEmail", email);
-
-      const response = await mealAPI.getRecommendations(email, filters);
+      const response = await mealAPI.getRecommendations(filters);
 
       if (response.success) {
         setRecommendations(response.recommendations || []);
@@ -89,9 +70,7 @@ const Recommendations = () => {
     }
   };
 
-  const handleRating = async (mealId, rating) => {
-    try {
-      await mealAPI.rateMeal(mealId, rating, email);
+  const handleRating = (mealId, rating) => {
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userRating: rating } : meal
@@ -100,16 +79,11 @@ const Recommendations = () => {
       setSuccess(`✅ Rating submitted! You gave ${rating} star${rating !== 1 ? "s" : ""}.`);
       setError("");
       setTimeout(() => setSuccess(""), 3000);
-    } catch (error) {
-      console.error("Failed to submit rating:", error);
-      setError(`Failed to submit rating: ${apiUtils.handleError(error)}`);
-      setSuccess("");
-    }
   };
 
   const handleFeedback = async (mealId, liked) => {
     try {
-      await studentAPI.recordFeedback(email, mealId, liked);
+      await studentAPI.recordFeedback(mealId, liked);
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userFeedback: liked } : meal
@@ -145,20 +119,14 @@ const Recommendations = () => {
           </p>
         </div>
 
-        {/* Email Input and Filters */}
+        {/* Account and filters */}
         <section className="bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 md:p-8 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-text-primary mb-1.5">
-                Your Email
+                Signed in as
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder:text-text-muted"
-                placeholder="Enter your email to get recommendations"
-              />
+              <div className="w-full bg-surface-alt border border-border rounded-lg px-4 py-3 text-text-primary">{email}</div>
             </div>
 
             <div>
@@ -198,7 +166,7 @@ const Recommendations = () => {
             <button
               onClick={fetchRecommendations}
               className="bg-primary text-white rounded-full px-8 py-3 font-medium hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || !email}
+              disabled={loading || !student}
             >
               {loading ? "Getting Recommendations..." : "Get My Recommendations"}
             </button>
@@ -211,7 +179,7 @@ const Recommendations = () => {
             <div className="flex justify-between items-start mb-5">
               <h3 className="text-lg font-semibold text-text-primary">Your Profile</h3>
               <Link
-                to={`/profile?email=${email}`}
+                to="/profile"
                 className="text-sm font-medium text-primary hover:text-primary-hover transition-colors"
               >
                 Edit →
@@ -263,9 +231,9 @@ const Recommendations = () => {
               <svg className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
-              <span className="text-sm text-text-secondary">No profile found for this email. Create your profile first for better recommendations!</span>
+              <span className="text-sm text-text-secondary">Create your profile first for personalized recommendations.</span>
             </div>
-            <Link to={`/profile?email=${email}`} className="text-sm font-medium text-primary hover:text-primary-hover transition-colors whitespace-nowrap ml-4">
+            <Link to="/profile" className="text-sm font-medium text-primary hover:text-primary-hover transition-colors whitespace-nowrap ml-4">
               Create Profile →
             </Link>
           </div>
@@ -290,7 +258,6 @@ const Recommendations = () => {
                   onFeedback={handleFeedback}
                   showRating={true}
                   showFeedback={true}
-                  userEmail={email}
                 />
               ))}
             </div>

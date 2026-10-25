@@ -3,7 +3,8 @@ const router = express.Router();
 const Meal = require("../models/Meal");
 const Student = require("../models/Student");
 const axios = require("axios");
-const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
+const { authenticateToken, authorizeAdmin, requireStudent } = require("../middleware/auth");
+const { cuisines, categories, diets, email, id, integer, number, query, choice, invalid, keys, meal: validateMeal } = require('../validation');
 
 const ML_API_URL = process.env.ML_API_URL || "http://localhost:5000";
 
@@ -13,7 +14,7 @@ let lastStatsCacheTime = 0;
 const STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Get meal statistics
-router.get("/stats", async (req, res) => {
+router.get("/stats", async (req, res, next) => {
   try {
     const now = Date.now();
     if (cachedStats && (now - lastStatsCacheTime < STATS_CACHE_TTL)) {
@@ -56,22 +57,13 @@ router.get("/stats", async (req, res) => {
       success: true,
       stats: cachedStats,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Create a meal entry
-router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
+router.post("/", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
-    // Sanitize input
-    const mealData = {};
-    const allowedFields = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl'];
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) mealData[field] = req.body[field];
-    });
-
-    const meal = new Meal(mealData);
+    const meal = new Meal(validateMeal(req.body, true));
     await meal.save();
     
     res.json({
@@ -79,33 +71,37 @@ router.post("/", authenticateToken, authorizeAdmin, async (req, res) => {
       message: "Meal created successfully",
       meal
     });
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      return res.status(400).json({ 
-        error: "Validation error", 
-        details: err.message 
-      });
-    }
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Get all meals with filtering
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
   try {
-    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein, sortBy = "popularity", page = 1, limit = 20 } = req.query;
+    const options = query(req, {
+      cuisine: value => choice(value, cuisines),
+      category: value => choice(value, categories),
+      dietaryPreference: value => choice(value, diets),
+      minCalories: value => number(value),
+      maxCalories: value => number(value),
+      minProtein: value => number(value),
+      sortBy: value => choice(value, ['popularity', 'rating', 'calories', 'protein']),
+      page: value => integer(value, 1, 1000000),
+      limit: value => integer(value, 1, 100),
+    });
+    const { cuisine, category, dietaryPreference, minCalories, maxCalories, minProtein } = options;
+    const sortBy = options.sortBy || 'popularity';
+    const pageNum = options.page || 1;
+    const limitNum = options.limit || 20;
+    if (minCalories !== undefined && maxCalories !== undefined && minCalories > maxCalories) invalid('Minimum calories exceeds maximum');
     
     let filter = { isActive: true };
     
     if (cuisine) filter.cuisine = cuisine;
     if (category) filter.category = category;
     if (dietaryPreference) filter.dietaryPreference = dietaryPreference;
-    if (minCalories) filter.calories = { ...filter.calories, $gte: parseInt(minCalories) };
-    if (maxCalories) filter.calories = { ...filter.calories, $lte: parseInt(maxCalories) };
-    if (minProtein) filter.protein = { $gte: parseInt(minProtein) };
-
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    if (minCalories !== undefined) filter.calories = { ...filter.calories, $gte: minCalories };
+    if (maxCalories !== undefined) filter.calories = { ...filter.calories, $lte: maxCalories };
+    if (minProtein !== undefined) filter.protein = { $gte: minProtein };
     const skip = (pageNum - 1) * limitNum;
 
     const sortOptions = {
@@ -130,15 +126,13 @@ router.get("/", async (req, res) => {
       currentPage: pageNum,
       meals
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Get meal by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", async (req, res, next) => {
   try {
-    const meal = await Meal.findById(req.params.id);
+    const meal = await Meal.findById(id(req.params.id));
     
     if (!meal) {
       return res.status(404).json({ error: "Meal not found" });
@@ -148,18 +142,23 @@ router.get("/:id", async (req, res) => {
       success: true,
       meal
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Recommend meals for a student using enhanced ML API
-router.get("/recommend/:email", async (req, res) => {
+const recommend = async (req, res, next) => {
   try {
-    const { limit = 10, mealType } = req.query;
+    const options = query(req, {
+      limit: value => integer(value, 1, 20),
+      mealType: value => choice(value, categories),
+    });
+    const limit = options.limit || 10;
+    const mealType = options.mealType;
     
     // Get student profile
-    const student = await Student.findOne({ email: req.params.email });
+    const student = req.user.role === 'student'
+      ? await Student.findOne({ userId: req.user.id })
+      : await Student.findOne({ email: req.params.email });
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
     }
@@ -241,14 +240,14 @@ router.get("/recommend/:email", async (req, res) => {
         // Sort by confidence and rating
         recommendations = recommendedMeals
           .sort((a, b) => (b.confidence * 0.7 + b.averageRating * 0.3) - (a.confidence * 0.7 + a.averageRating * 0.3))
-          .slice(0, parseInt(limit));
+          .slice(0, limit);
       }
     } catch (mlError) {
       console.error("ML API Error:", mlError.message);
       // Fallback: return meals sorted by rating and popularity
       recommendations = meals
         .sort((a, b) => (b.averageRating * 0.6 + b.popularity * 0.4) - (a.averageRating * 0.6 + a.popularity * 0.4))
-        .slice(0, parseInt(limit))
+        .slice(0, limit)
         .map(meal => ({
           ...meal.toObject(),
           confidence: 0.5,
@@ -265,22 +264,34 @@ router.get("/recommend/:email", async (req, res) => {
       mlApiUsed: recommendations.length > 0 ? recommendations[0].mlRecommended : false
     });
 
-  } catch (err) {
-    console.error("Recommendation Error:", err);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
+};
+
+router.get('/recommend/me', authenticateToken, requireStudent, (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  return recommend(req, res, next);
+});
+router.get('/recommend/:email', authenticateToken, (req, res, next) => {
+  try {
+    const target = email(req.params.email);
+    if (req.user.role !== 'admin' && (req.user.role !== 'student' || req.user.email !== target)) {
+      return res.status(403).json({ error: 'Profile belongs to another account' });
+    }
+    req.params.email = target;
+    res.set('Cache-Control', 'no-store');
+    return recommend(req, res, next);
+  } catch (err) { next(err); }
 });
 
 // Rate a meal
-router.post("/:id/rate", async (req, res) => {
+router.post("/:id/rate", authenticateToken, requireStudent, async (req, res, next) => {
   try {
-    const { rating, email } = req.body;
+    keys(req.body, ['rating']);
+    const { rating } = req.body;
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) invalid('Rating must be an integer between 1 and 5');
+    const mealId = id(req.params.id);
     
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: "Rating must be between 1 and 5" });
-    }
-    
-    const meal = await Meal.findById(req.params.id);
+    const meal = await Meal.findById(mealId);
     if (!meal) {
       return res.status(404).json({ error: "Meal not found" });
     }
@@ -296,8 +307,8 @@ router.post("/:id/rate", async (req, res) => {
     await meal.save();
 
     // Update student meal history
-    if (email) {
-      const student = await Student.findOne({ email });
+    {
+      const student = await Student.findOne({ userId: req.user.id });
       if (student) {
         await student.updateOne({
           $push: {
@@ -317,23 +328,16 @@ router.post("/:id/rate", async (req, res) => {
       newAverageRating: meal.averageRating,
       totalRatings: meal.totalRatings
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Update meal
-router.put("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
+router.put("/:id", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
-    // Sanitize input
-    const updateData = {};
-    const allowedFields = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl', 'isActive'];
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) updateData[field] = req.body[field];
-    });
+    const updateData = validateMeal(req.body, false);
 
     const meal = await Meal.findByIdAndUpdate(
-      req.params.id,
+      id(req.params.id),
       updateData,
       { new: true, runValidators: true }
     );
@@ -347,22 +351,14 @@ router.put("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
       message: "Meal updated successfully",
       meal
     });
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      return res.status(400).json({ 
-        error: "Validation error", 
-        details: err.message 
-      });
-    }
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Delete meal
-router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
+router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
     const meal = await Meal.findByIdAndUpdate(
-      req.params.id,
+      id(req.params.id),
       { isActive: false },
       { new: true }
     );
@@ -375,30 +371,25 @@ router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res) => {
       success: true,
       message: "Meal deleted successfully"
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // Bulk import meals from CSV data
-router.post("/bulk-import", authenticateToken, authorizeAdmin, async (req, res) => {
+router.post("/bulk-import", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
     const { meals } = req.body;
     
-    if (!Array.isArray(meals) || meals.length === 0) {
-      return res.status(400).json({ error: "Meals array is required" });
-    }
+    keys(req.body, ['meals']);
+    if (!Array.isArray(meals) || meals.length === 0 || meals.length > 100) invalid('Meals array must contain 1 to 100 entries');
 
-    const importedMeals = await Meal.insertMany(meals, { ordered: false });
+    const importedMeals = await Meal.insertMany(meals.map(item => validateMeal(item, true)), { ordered: false });
     
     res.json({
       success: true,
       message: `${importedMeals.length} meals imported successfully`,
       importedCount: importedMeals.length
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

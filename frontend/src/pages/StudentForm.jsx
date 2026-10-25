@@ -3,11 +3,12 @@ import { studentAPI, apiUtils } from "../services/api";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import ErrorMessage from "../components/common/ErrorMessage";
 import Skeleton from "../components/common/Skeleton";
+import { readSession } from '../services/session';
 
 const StudentForm = () => {
   const [form, setForm] = useState({
     name: "",
-    email: "",
+    email: readSession()?.email || "",
     preferences: {
       cuisines: [],
       dietaryPreference: "Vegetarian",
@@ -34,16 +35,15 @@ const StudentForm = () => {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const email = new URLSearchParams(window.location.search).get('email');
-      if (email) {
+      if (readSession()?.role === 'student') {
         try {
-          const response = await studentAPI.getProfile(email);
+          const response = await studentAPI.getProfile();
           if (response.success && response.student) {
-            setForm(response.student);
+            setForm(prev => ({ ...prev, ...response.student }));
             setExistingProfile(response.student);
           }
-        } catch {
-          console.log("No existing profile found");
+        } catch (err) {
+          if (err.response?.status !== 404) setError(apiUtils.handleError(err));
         }
       }
     };
@@ -99,26 +99,22 @@ const StudentForm = () => {
     setError("");
     setSuccess("");
 
-    if (!form.name || !form.email) {
-      setError("Name and email are required");
-      setLoading(false);
-      return;
-    }
-
-    if (!apiUtils.validateEmail(form.email)) {
-      setError("Please enter a valid email address");
+    if (!form.name || !readSession()?.email) {
+      setError("Name and student sign-in are required");
       setLoading(false);
       return;
     }
 
     try {
-      const response = await studentAPI.createOrUpdateProfile(form);
+      const response = await studentAPI.createOrUpdateProfile({
+        name: form.name,
+        preferences: form.preferences,
+        allergies: form.allergies,
+        nutritionGoals: Object.fromEntries(Object.entries(form.nutritionGoals).map(([key, value]) => [key, Number(value)])),
+        activityLevel: form.activityLevel,
+      });
       setSuccess(response.message || "Profile saved successfully!");
       setExistingProfile(response.student);
-      
-      const url = new URL(window.location);
-      url.searchParams.set('email', form.email);
-      window.history.replaceState(null, '', url);
       
     } catch (error) {
       setError(apiUtils.handleError(error));
@@ -187,7 +183,7 @@ const StudentForm = () => {
                   type="email"
                   name="email"
                   value={form.email}
-                  onChange={handleChange}
+                  readOnly
                   className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder:text-text-muted"
                   placeholder="Enter your email"
                   required

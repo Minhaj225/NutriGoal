@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 64
   },
+  email: { type: String, trim: true, lowercase: true, maxlength: 254 },
   password: {
     type: String,
     required: true,
@@ -19,10 +20,12 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'staff'],
+    enum: ['admin', 'staff', 'student'],
     default: 'staff'
   }
 }, { timestamps: true });
+
+userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

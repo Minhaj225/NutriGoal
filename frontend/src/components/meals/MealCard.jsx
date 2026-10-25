@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { mealAPI, studentAPI, apiUtils } from "../../services/api";
+import { readSession } from '../../services/session';
 
 const MealCard = ({
   meal,
@@ -7,7 +8,6 @@ const MealCard = ({
   onFeedback,
   showRating = true,
   showFeedback = false,
-  userEmail,
 }) => {
   const [rating, setRating] = useState(0);
   const [isRating, setIsRating] = useState(false);
@@ -19,23 +19,23 @@ const MealCard = ({
     : `per ${servingSizeLabel}`;
 
   const handleRating = async (newRating) => {
-    if (!userEmail) {
-      alert("Please provide your email to rate meals");
+    if (readSession()?.role !== 'student') {
+      alert('Sign in as a student to rate meals');
       return;
     }
 
     setIsRating(true);
     try {
-      await mealAPI.rateMeal(meal._id, newRating, userEmail);
+      await mealAPI.rateMeal(meal._id, newRating);
       setRating(newRating);
       if (onRate) onRate(meal._id, newRating);
 
       if (showFeedback) {
         const liked = newRating >= 3;
         if (onFeedback) {
-          onFeedback(meal._id, liked);
+          await onFeedback(meal._id, liked);
         } else {
-          await studentAPI.recordFeedback(userEmail, meal._id, liked);
+          await studentAPI.recordFeedback(meal._id, liked);
         }
         setFeedback(liked);
       }

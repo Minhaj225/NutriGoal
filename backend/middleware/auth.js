@@ -19,11 +19,12 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findById(claims.id).select('username role');
+    const user = await User.findById(claims.id).select('username email role');
     if (!user || user.role !== claims.role) {
       return res.status(401).json({ error: 'Session no longer valid' });
     }
     req.user = { id: String(user._id), username: user.username, role: user.role };
+    if (user.role === 'student') req.user.email = user.email;
     next();
   } catch (err) {
     next(err);
@@ -37,4 +38,11 @@ const authorizeAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authenticateToken, authorizeAdmin };
+const requireStudent = (req, res, next) => {
+  if (req.user?.role !== 'student' || !req.user.email) {
+    return res.status(403).json({ error: 'Student account required' });
+  }
+  next();
+};
+
+module.exports = { authenticateToken, authorizeAdmin, requireStudent };

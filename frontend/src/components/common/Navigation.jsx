@@ -4,7 +4,9 @@ import { readSession, clearSession } from '../../services/session';
 
 const Navigation = () => {
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState(readSession()?.role === 'admin');
+  const [sessionRole, setSessionRole] = useState(readSession()?.role);
+  const isAdmin = sessionRole === 'admin';
+  const isStudent = sessionRole === 'student';
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -12,7 +14,7 @@ const Navigation = () => {
 
   useEffect(() => {
     const handleAdminChange = () => {
-      setIsAdmin(readSession()?.role === 'admin');
+      setSessionRole(readSession()?.role);
     };
 
     const handleClickOutside = (event) => {
@@ -155,6 +157,17 @@ const Navigation = () => {
                       Browse All Meals
                     </Link>
                     <div className="border-t border-border my-1"></div>
+                    {!isStudent && <Link
+                      to="/student/login"
+                      className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-primary rounded-lg mx-1"
+                      role="menuitem"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >Student Sign In</Link>}
+                    {isStudent && <button type="button"
+                      className="block w-[calc(100%-0.5rem)] text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-primary rounded-lg mx-1"
+                      role="menuitem"
+                      onClick={() => { setIsUserMenuOpen(false); clearSession(); window.location.href = '/'; }}
+                    >Student Logout</button>}
                     <Link
                       to="/admin/login"
                       className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-primary rounded-lg mx-1"

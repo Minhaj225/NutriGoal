@@ -1,4 +1,5 @@
 const express = require("express");
+const { randomUUID } = require('node:crypto');
 const mongoose = require("mongoose");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -23,8 +24,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Global Rate Limiting
 
@@ -65,7 +66,11 @@ app.use(limiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  req.requestId = randomUUID();
+  res.set('X-Request-ID', req.requestId);
+  res.on('finish', () => {
+    console.log(`${req.requestId} ${req.method} ${req.baseUrl}${req.route?.path || '[unmatched]'} ${res.statusCode}`);
+  });
   next();
 });
 
@@ -121,20 +126,22 @@ app.get("/api", (req, res) => {
 app.use("*", (req, res) => {
   res.status(404).json({
     error: "Endpoint not found",
-    path: req.originalUrl,
     availableEndpoints: ["/api", "/api/health", "/api/students", "/api/meals"]
   });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error("Global Error:", err);
+  console.error(`${req.requestId || 'unparsed'} ${req.method} ${req.baseUrl}${req.route?.path || '[unmatched]'} ${err.name}`);
+  if (err.status === 413 || err.type === 'entity.too.large') return res.status(413).json({ error: 'Request body too large' });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid request body' });
+  if (err.status === 400) return res.status(400).json({ error: err.message || 'Invalid request' });
+  if (err.status === 403) return res.status(403).json({ error: err.message });
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     return res.status(400).json({
-      error: "Validation Error",
-      details: Object.values(err.errors).map(e => e.message)
+      error: "Validation Error"
     });
   }
   
@@ -142,7 +149,7 @@ app.use((err, req, res, next) => {
   if (err.name === 'CastError') {
     return res.status(400).json({
       error: "Invalid ID format",
-      details: err.message
+      details: 'Invalid ID'
     });
   }
   
@@ -156,8 +163,7 @@ app.use((err, req, res, next) => {
   
   // Default error
   res.status(500).json({
-    error: "Internal Server Error",
-    message: process.env.NODE_ENV === 'development' ? err.message : "Something went wrong"
+    error: "Internal Server Error"
   });
 });
 

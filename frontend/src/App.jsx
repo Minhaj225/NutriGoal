@@ -6,28 +6,30 @@ import Recommendations from "./pages/Recommendations.jsx";
 import BrowseMeals from "./pages/BrowseMeals.jsx";
 import AdminMealForm from "./pages/AdminMealForm.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
+import StudentAuth from './pages/StudentAuth.jsx';
 import Navigation from "./components/common/Navigation.jsx";
 import { systemAPI } from './services/api';
 import { readSession } from './services/session';
 
-const ProtectedAdminRoute = ({ children }) => {
-  const [isAdmin, setIsAdmin] = useState(null);
+const ProtectedRoute = ({ children, role, loginPath }) => {
+  const [allowed, setAllowed] = useState(null);
 
   useEffect(() => {
     let request = 0;
     const checkSession = async () => {
       const current = ++request;
       const session = readSession();
-      if (session?.role !== 'admin') {
-        setIsAdmin(false);
+      if (session?.role !== role) {
+        setAllowed(false);
         return;
       }
-      setIsAdmin(null);
+      setAllowed(null);
       try {
         const user = await systemAPI.me();
-        if (current === request) setIsAdmin(user.role === 'admin' && user.username === session.username);
+        if (current === request) setAllowed(user.role === role && user.username === session.username &&
+          (role !== 'student' || user.email === session.email));
       } catch {
-        if (current === request) setIsAdmin(false);
+        if (current === request) setAllowed(false);
       }
     };
 
@@ -39,10 +41,10 @@ const ProtectedAdminRoute = ({ children }) => {
       window.removeEventListener('storage', checkSession);
       window.removeEventListener('adminLoginChange', checkSession);
     };
-  }, []);
+  }, [role]);
 
-  if (isAdmin === null) return <div role="status">Checking admin access…</div>;
-  return isAdmin ? children : <Navigate to="/admin/login" replace />;
+  if (allowed === null) return <div role="status">Checking account access…</div>;
+  return allowed ? children : <Navigate to={loginPath} replace />;
 };
 
 const App = () => {
@@ -52,15 +54,16 @@ const App = () => {
         <Navigation />
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/profile" element={<StudentForm />} />
-          <Route path="/recommendations" element={<Recommendations />} />
+          <Route path="/student/login" element={<StudentAuth />} />
+          <Route path="/profile" element={<ProtectedRoute role="student" loginPath="/student/login"><StudentForm /></ProtectedRoute>} />
+          <Route path="/recommendations" element={<ProtectedRoute role="student" loginPath="/student/login"><Recommendations /></ProtectedRoute>} />
           <Route path="/browse" element={<BrowseMeals />} />
           <Route
             path="/admin/meals"
             element={
-              <ProtectedAdminRoute>
+              <ProtectedRoute role="admin" loginPath="/admin/login">
                 <AdminMealForm />
-              </ProtectedAdminRoute>
+              </ProtectedRoute>
             }
           />
           <Route path="/admin/login" element={<AdminLogin />} />

@@ -1,14 +1,16 @@
 const mongoose = require("mongoose");
 
 const studentSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  name: { type: String, required: true, trim: true, maxlength: 120 },
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true, maxlength: 254,
+    match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
   preferences: {
     cuisines: [{ type: String, enum: ["North Indian", "South Indian", "Street Food", "General"] }],
     dietaryPreference: { type: String, enum: ["Vegetarian", "Non-Vegetarian"], default: "Vegetarian" },
     categories: [{ type: String, enum: ["Main Dish", "Breakfast", "Snack", "Side Dish", "Staple"] }]
   },
-  allergies: [String],
+  allergies: [{ type: String, maxlength: 80 }],
   nutritionGoals: {
     caloriesPerDay: { type: Number, min: 1000, max: 5000 },
     proteinGramsPerDay: { type: Number, min: 20, max: 200 },
@@ -24,5 +26,7 @@ const studentSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+studentSchema.index({ userId: 1 }, { unique: true, partialFilterExpression: { userId: { $type: 'objectId' } } });
 
 module.exports = mongoose.model("Student", studentSchema);

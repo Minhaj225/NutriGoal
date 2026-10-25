@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { Link } from 'react-router-dom';
 import { mealAPI, apiUtils } from "../services/api";
 import MealCard from "../components/meals/MealCard";
 import Skeleton from "../components/common/Skeleton";
 import ErrorMessage from "../components/common/ErrorMessage";
 import { useStaggeredEntry } from "../hooks/useStaggeredEntry";
+import { readSession } from '../services/session';
 
 const BrowseMeals = () => {
   const [meals, setMeals] = useState([]);
@@ -20,7 +22,7 @@ const BrowseMeals = () => {
     minProtein: "",
   });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
-  const [userEmail, setUserEmail] = useState("");
+  const signedInStudent = readSession()?.role === 'student';
   const [sortBy, setSortBy] = useState("popularity");
 
   // Debounce filters
@@ -44,10 +46,6 @@ const BrowseMeals = () => {
   ];
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem("userEmail");
-    if (savedEmail) {
-      setUserEmail(savedEmail);
-    }
     fetchMeals();
   }, []);
 
@@ -216,33 +214,9 @@ const BrowseMeals = () => {
           </div>
         </section>
 
-        {/* Email Input for Rating */}
-        {!userEmail && (
-          <section className="bg-primary-muted border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between mb-8">
-            <div className="flex items-start sm:items-center mb-4 sm:mb-0">
-              <svg className="w-5 h-5 text-primary mr-3 mt-0.5 sm:mt-0 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-text-primary">Want to rate meals? Enter your email:</p>
-                <input
-                  type="email"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  className="w-full sm:w-64 bg-surface border border-border rounded-lg px-4 py-2 mt-2 text-sm text-text-primary focus:border-primary outline-none transition-colors"
-                  placeholder="your-email@example.com"
-                />
-              </div>
-            </div>
-            <button
-              onClick={() => localStorage.setItem("userEmail", userEmail)}
-              className="w-full sm:w-auto px-6 py-2.5 bg-primary text-white font-medium rounded-full hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!apiUtils.validateEmail(userEmail)}
-            >
-              Save Email
-            </button>
-          </section>
-        )}
+        {!signedInStudent && <p className="mb-8 text-sm text-text-secondary">
+          <Link to="/student/login" className="text-primary font-medium">Sign in as a student</Link> to rate meals.
+        </p>}
 
         {/* Error Display */}
         {error && <ErrorMessage message={error} onRetry={fetchMeals} />}
@@ -265,8 +239,7 @@ const BrowseMeals = () => {
                   key={meal._id}
                   meal={meal}
                   onRate={handleRating}
-                  showRating={true}
-                  userEmail={userEmail}
+                  showRating={signedInStudent}
                 />
               ))}
             </div>

@@ -26,10 +26,12 @@ api.interceptors.response.use(
   (error) => {
     const isLoginRequest = error.config?.url?.includes('/auth/login');
     if (!isLoginRequest && error.response?.status === 401 && readSession() &&
-        (window.location.pathname.startsWith('/admin') || error.config?.url === '/auth/me')) {
+        (window.location.pathname.startsWith('/admin') || ['/profile', '/recommendations'].includes(window.location.pathname) || error.config?.url === '/auth/me')) {
       clearSession();
       if (window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
         window.location.assign('/admin/login');
+      } else if (['/profile', '/recommendations'].includes(window.location.pathname)) {
+        window.location.assign('/student/login');
       }
     }
     return Promise.reject(error);
@@ -100,7 +102,7 @@ export const mealAPI = {
   },
 
   // Get recommendations for a student with enhanced options
-  getRecommendations: async (email, options = {}) => {
+  getRecommendations: async (options = {}) => {
     const params = new URLSearchParams();
     Object.entries(options).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -108,16 +110,13 @@ export const mealAPI = {
       }
     });
     
-    const response = await api.get(`/meals/recommend/${email}?${params}`);
+    const response = await api.get(`/meals/recommend/me?${params}`);
     return response.data;
   },
 
   // Rate a meal
-  rateMeal: async (mealId, rating, email) => {
-    const response = await api.post(`/meals/${mealId}/rate`, {
-      rating,
-      email
-    });
+  rateMeal: async (mealId, rating) => {
+    const response = await api.post(`/meals/${mealId}/rate`, { rating });
     return response.data;
   },
 
@@ -163,13 +162,13 @@ export const mealAPI = {
 export const studentAPI = {
   // Create or update student profile
   createOrUpdateProfile: async (studentData) => {
-    const response = await api.post('/students', studentData);
+    const response = await api.post('/students/me', studentData);
     return response.data;
   },
 
   // Get student profile by email
-  getProfile: async (email) => {
-    const response = await api.get(`/students/${email}`);
+  getProfile: async () => {
+    const response = await api.get('/students/me');
     return response.data;
   },
 
@@ -180,8 +179,8 @@ export const studentAPI = {
   },
 
   // Record meal feedback
-  recordFeedback: async (email, mealId, liked) => {
-    const response = await api.post(`/students/${email}/feedback`, {
+  recordFeedback: async (mealId, liked) => {
+    const response = await api.post('/students/me/feedback', {
       mealId,
       liked
     });
@@ -189,20 +188,8 @@ export const studentAPI = {
   },
 
   // Delete student profile
-  deleteProfile: async (email) => {
-    const response = await api.delete(`/students/${email}`);
-    return response.data;
-  },
-
-  // Get student meal history
-  getMealHistory: async (email) => {
-    const response = await api.get(`/students/${email}/history`);
-    return response.data;
-  },
-
-  // Update student preferences only
-  updatePreferences: async (email, preferences) => {
-    const response = await api.put(`/students/${email}/preferences`, preferences);
+  deleteProfile: async () => {
+    const response = await api.delete('/students/me');
     return response.data;
   }
 };
@@ -212,6 +199,10 @@ export const systemAPI = {
   // Login for admin
   login: async (username, password) => {
     const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  },
+  registerStudent: async (email, password) => {
+    const response = await api.post('/auth/register', { email, password });
     return response.data;
   },
   me: async () => {

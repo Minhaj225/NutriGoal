@@ -1,152 +1,112 @@
-const express = require("express");
+const express = require('express');
+const Student = require('../models/Student');
+const { authenticateToken, authorizeAdmin, requireStudent } = require('../middleware/auth');
+const { email, emailPattern, id, integer, invalid, keys, profile, query } = require('../validation');
+
 const router = express.Router();
-const Student = require("../models/Student");
-const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
+router.use(authenticateToken);
+router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
-// Create or update student profile
-router.post("/", async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    // Validate email
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    // Sanitize input to prevent NoSQL injection
-    const updateData = {};
-    const allowedFields = ['name', 'preferences', 'nutritionGoals', 'allergies', 'activityLevel'];
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
-      }
-    });
-
-    const student = await Student.findOneAndUpdate(
-      { email }, 
-      updateData, 
-      { upsert: true, new: true, runValidators: true }
-    );
-    
-    res.json({
-      success: true,
-      message: "Student profile updated successfully",
-      student
-    });
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      return res.status(400).json({ 
-        error: "Validation error", 
-        details: err.message 
-      });
-    }
-    res.status(500).json({ error: err.message });
+function requestedEmail(req, supplied = req.params.email) {
+  const target = email(supplied);
+  if (req.user.role !== 'admin' && (req.user.role !== 'student' || req.user.email !== target)) {
+    const error = new Error('Profile belongs to another account');
+    error.status = 403;
+    throw error;
   }
-});
+  return target;
+}
 
-// Get student profile by email
-router.get("/:email", async (req, res) => {
+async function findProfile(req, target) {
+  return req.user.role === 'student'
+    ? Student.findOne({ userId: req.user.id })
+    : Student.findOne({ email: emailPattern(target) });
+}
+
+async function saveProfile(req, res, next, target) {
   try {
-    const student = await Student.findOne({ email: req.params.email })
-    
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-    
-    res.json({
-      success: true,
-      student
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    profile(req.body, target, false);
+    const student = await findProfile(req, target);
+    const changes = profile(req.body, target, !student);
+    const record = student || new Student({ email: target, ...(req.user.role === 'student' ? { userId: req.user.id } : {}) });
+    for (const [path, value] of Object.entries(changes)) record.set(path, value);
+    await record.save();
+    res.json({ success: true, message: 'Student profile updated successfully', student: record });
+  } catch (err) { next(err); }
+}
 
-// Get all students (for admin purposes)
-router.get("/", authenticateToken, authorizeAdmin, async (req, res) => {
+async function getProfile(req, res, next, target) {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const student = await findProfile(req, target);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json({ success: true, student });
+  } catch (err) { next(err); }
+}
 
-    const total = await Student.countDocuments();
-    const students = await Student.find()
-      .select('-mealHistory')
-      .skip(skip)
-      .limit(limit);
-
-    res.json({
-      success: true,
-      count: students.length,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      students
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update student meal feedback
-router.post("/:email/feedback", async (req, res) => {
+async function recordFeedback(req, res, next, target) {
   try {
-    const { mealId, liked } = req.body;
-    
-    if (!mealId || typeof liked !== 'boolean') {
-      return res.status(400).json({ 
-        error: "mealId and liked (boolean) are required" 
-      });
-    }
-
-    const student = await Student.findOne({ email: req.params.email });
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-
-    // Add or update meal feedback
-    const existingFeedback = student.mealHistory.find(
-      history => history.mealId.toString() === mealId
-    );
-
-    if (existingFeedback) {
-      existingFeedback.liked = liked;
-      existingFeedback.consumedAt = new Date();
+    keys(req.body, ['mealId', 'liked']);
+    const mealId = id(req.body.mealId);
+    if (typeof req.body.liked !== 'boolean') invalid('liked must be a boolean');
+    const student = await findProfile(req, target);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    const existing = student.mealHistory.find(item => String(item.mealId) === mealId);
+    if (existing) {
+      existing.liked = req.body.liked;
+      existing.consumedAt = new Date();
     } else {
-      student.mealHistory.push({
-        mealId,
-        liked,
-        consumedAt: new Date()
-      });
+      student.mealHistory.push({ mealId, liked: req.body.liked, consumedAt: new Date() });
     }
-
     await student.save();
-    
-    res.json({
-      success: true,
-      message: "Feedback recorded successfully"
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    res.json({ success: true, message: 'Feedback recorded successfully' });
+  } catch (err) { next(err); }
+}
+
+router.get('/me', requireStudent, (req, res, next) => getProfile(req, res, next, req.user.email));
+router.post('/me', requireStudent, (req, res, next) => saveProfile(req, res, next, req.user.email));
+router.post('/me/feedback', requireStudent, (req, res, next) => recordFeedback(req, res, next, req.user.email));
+router.delete('/me', requireStudent, async (req, res, next) => {
+  try {
+    const student = await Student.findOneAndDelete({ userId: req.user.id });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json({ success: true, message: 'Student profile deleted successfully' });
+  } catch (err) { next(err); }
 });
 
-// Delete student profile
-router.delete("/:email", authenticateToken, authorizeAdmin, async (req, res) => {
+router.get('/', authorizeAdmin, async (req, res, next) => {
   try {
-    const student = await Student.findOneAndDelete({ email: req.params.email });
-    
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-    
-    res.json({
-      success: true,
-      message: "Student profile deleted successfully"
+    const options = query(req, {
+      page: value => integer(value, 1, 1000000),
+      limit: value => integer(value, 1, 100),
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+    const total = await Student.countDocuments();
+    const students = await Student.find().select('-mealHistory').sort({ _id: 1 }).skip((page - 1) * limit).limit(limit);
+    res.json({ success: true, count: students.length, total, totalPages: Math.ceil(total / limit), currentPage: page, students });
+  } catch (err) { next(err); }
+});
+
+router.post('/', async (req, res, next) => {
+  try {
+    keys(req.body, ['name', 'email', 'preferences', 'nutritionGoals', 'allergies', 'activityLevel']);
+    const target = requestedEmail(req, req.body.email);
+    return saveProfile(req, res, next, target);
+  } catch (err) { next(err); }
+});
+
+router.get('/:email', (req, res, next) => {
+  try { return getProfile(req, res, next, requestedEmail(req)); } catch (err) { next(err); }
+});
+router.post('/:email/feedback', (req, res, next) => {
+  try { return recordFeedback(req, res, next, requestedEmail(req)); } catch (err) { next(err); }
+});
+router.delete('/:email', authorizeAdmin, async (req, res, next) => {
+  try {
+    const student = await Student.findOneAndDelete({ email: emailPattern(requestedEmail(req)) });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json({ success: true, message: 'Student profile deleted successfully' });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

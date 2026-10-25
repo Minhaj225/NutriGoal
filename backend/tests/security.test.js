@@ -58,9 +58,10 @@ describe('Security API Tests', () => {
 
     const response = await request(app)
       .post('/api/students')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send(injectionPayload);
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     const updatedStudent = await Student.findOne({ email: 'test@example.com' });
     expect(updatedStudent.name).not.toBe('Hacked');
   });
