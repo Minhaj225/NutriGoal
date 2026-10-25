@@ -154,9 +154,9 @@ NutriGoal/
 ## Getting Started
 
 ### Prerequisites
-- Node.js 16+
-- npm 8+
-- Python 3.8+
+- Node.js 22.12+ (Node 22)
+- npm 10+
+- Python 3.12
 - MongoDB Atlas or local MongoDB
 
 ### 1) Clone
@@ -281,8 +281,9 @@ VITE_ENABLE_ADMIN_FEATURES=true
 Backend security tests:
 ```bash
 cd backend
-npm test
+TEST_MONGO_URI=mongodb://127.0.0.1:27017/nutrigoal_test npm test
 ```
+Use a disposable local MongoDB replica set. Tests create and remove their own randomly named database; they never use `MONGO_URI`.
 ML API test script:
 ```bash
 cd ml

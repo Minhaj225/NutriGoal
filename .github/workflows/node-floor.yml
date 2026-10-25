@@ -1,0 +1,25 @@
+name: Node floor
+
+on: [push, pull_request]
+
+jobs:
+  install-and-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci --engine-strict
+        working-directory: ${{ matrix.package }}
+      - run: npm run build
+        if: matrix.package == 'frontend'
+        working-directory: frontend
+      - run: node --check app.js
+        if: matrix.package == 'backend'
+        working-directory: backend

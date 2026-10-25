@@ -353,7 +353,7 @@ curl https://meal-recommender-ml.vercel.app/features
 ### **Production Environment**
 
 - **Platform**: Vercel (serverless Python runtime)
-- **Runtime**: Python 3.9+ via Vercel's Python runtime
+- **Runtime**: Python 3.12, declared in `.python-version`; deployment still needs staging verification
 - **Routing**: `vercel.json` routes all requests to `api/app.py`
 - **Scaling**: Automatic scaling handled by Vercel
 - **Health Checks**: `/health` endpoint for external monitoring
