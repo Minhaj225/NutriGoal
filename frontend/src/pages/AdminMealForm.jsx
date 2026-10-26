@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { mealAPI, mlAPI } from "../services/api";
+import { mealAPI } from "../services/api";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import ErrorMessage from "../components/common/ErrorMessage";
 import ConfirmModal from "../components/common/ConfirmModal";
@@ -30,6 +30,7 @@ const AdminMealForm = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [mlFeatures, setMlFeatures] = useState([]);
+  const [modelStatus, setModelStatus] = useState("unavailable");
   const [bulkImportFile, setBulkImportFile] = useState(null);
   const [mealToDelete, setMealToDelete] = useState(null);
 
@@ -65,10 +66,12 @@ const AdminMealForm = () => {
 
   const loadMLFeatures = async () => {
     try {
-      const response = await mlAPI.getFeatures();
+      const response = await mealAPI.getModelFeatures();
       setMlFeatures(response.features || []);
-    } catch (err) {
-      console.error("Error loading ML features:", err);
+      setModelStatus(response.features?.length ? "ready" : "unavailable");
+    } catch {
+      setMlFeatures([]);
+      setModelStatus("unavailable");
     }
   };
 
@@ -485,16 +488,16 @@ const AdminMealForm = () => {
             </section>
 
             {/* ML Features Info */}
-            {mlFeatures.length > 0 && (
               <section className="bg-surface rounded-2xl border border-border p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">ML Features</h2>
                   <div className="px-2.5 py-1 bg-primary-muted text-primary rounded-full text-xs font-medium">
-                    Active
+                    {modelStatus === "ready" ? "Ready" : "Unavailable"}
                   </div>
                 </div>
                 <p className="text-sm text-text-secondary mb-4">
-                  Current ML model uses {mlFeatures.length} features:
+                  {modelStatus === "ready" ? `Current model uses ${mlFeatures.length} features:` :
+                    "No approved model is available. Recommendations use the crowd-rating baseline."}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {mlFeatures.map((feature) => (
@@ -504,7 +507,6 @@ const AdminMealForm = () => {
                   ))}
                 </div>
               </section>
-            )}
           </div>
         </div>
 

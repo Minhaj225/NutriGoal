@@ -3,7 +3,6 @@ import { readSession, clearSession } from './session';
 
 // Base API configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:5000';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -38,41 +37,12 @@ api.interceptors.response.use(
   }
 );
 
-// ML API functions (direct calls to ML service)
-export const mlAPI = {
-  // Get ML model features
-  getFeatures: async () => {
-    const response = await axios.get(`${ML_API_URL}/features`);
-    return response.data;
-  },
-
-  // Single meal prediction
-  predictMeal: async (mealData) => {
-    const response = await axios.post(`${ML_API_URL}/predict`, mealData);
-    return response.data;
-  },
-
-  // Batch meal predictions
-  predictMealsBatch: async (meals) => {
-    const response = await axios.post(`${ML_API_URL}/predict_batch`, { meals });
-    return response.data;
-  },
-
-  // ML API health check
-  healthCheck: async () => {
-    const response = await axios.get(`${ML_API_URL}/health`);
-    return response.data;
-  },
-
-  // Get ML API info
-  getInfo: async () => {
-    const response = await axios.get(`${ML_API_URL}/`);
-    return response.data;
-  }
-};
-
 // Enhanced meal API functions
 export const mealAPI = {
+  getModelFeatures: async () => {
+    const response = await api.get('/meals/ml/features');
+    return response.data;
+  },
   // Get meal stats for home page
   getStats: async () => {
     const response = await api.get('/meals/stats');

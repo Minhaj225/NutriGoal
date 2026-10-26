@@ -34,6 +34,7 @@ test('admin login persists a token through reload and sends one authenticated wr
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('authSession')).token)).toBe('test.admin.token');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Add New Meal' })).toBeVisible();
+  await expect(page.getByText('Unavailable', { exact: true })).toBeVisible();
   await page.getByLabel('Meal Name *').fill('Test Dal');
   await page.getByLabel('Calories *').fill('180');
   await page.getByLabel('Protein (g) *').fill('9');
@@ -84,4 +85,20 @@ test('a forbidden write leaves a valid admin session available', async ({ page }
   await expect(page.getByText(/Failed to add meal/)).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('authSession')).role)).toBe('admin');
   await expect(page).toHaveURL(/\/admin\/meals$/);
+});
+
+test('admin feature display uses the authenticated backend proxy', async ({ page }) => {
+  await mockApi(page);
+  const requests = [];
+  await page.route('**/api/meals/ml/features', route => {
+    requests.push({ url: route.request().url(), token: route.request().headers().authorization });
+    return route.fulfill({ json: { features: ['calories', 'protein'], modelVersion: 'test-v1' } });
+  });
+  await login(page);
+  await expect(page).toHaveURL(/\/admin\/meals$/);
+  await expect(page.getByRole('heading', { name: 'ML Features' })).toBeVisible();
+  await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+  expect(requests.length).toBeGreaterThan(0);
+  expect(requests.every(item => item.url.includes('/api/meals/ml/features') &&
+    item.token === 'Bearer test.admin.token')).toBe(true);
 });

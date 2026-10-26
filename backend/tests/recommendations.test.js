@@ -64,7 +64,9 @@ beforeAll(async () => {
     servingSize: '200g', allergenStatus: 'verified', allergens: ['milk'] });
 });
 afterAll(cleanupTestDatabase);
-afterEach(() => { jest.restoreAllMocks(); delete process.env.RECOMMENDER_MODE; delete process.env.BEHAVIORAL_MODEL_APPROVED; });
+afterEach(() => { jest.restoreAllMocks(); delete process.env.RECOMMENDER_MODE;
+  delete process.env.BEHAVIORAL_MODEL_APPROVED; delete process.env.ML_API_TOKEN;
+  delete process.env.ML_MODEL_VERSION; });
 
 test('default baseline never calls ML and preserves eligibility', async () => {
   const ml = jest.spyOn(axios, 'post');
@@ -80,6 +82,8 @@ test('default baseline never calls ML and preserves eligibility', async () => {
 test('ML timeout degrades promptly to the same safe baseline', async () => {
   process.env.RECOMMENDER_MODE = 'behavioral';
   process.env.BEHAVIORAL_MODEL_APPROVED = 'true';
+  process.env.ML_API_TOKEN = 'local-secret';
+  process.env.ML_MODEL_VERSION = 'v1';
   const ml = jest.spyOn(axios, 'post').mockImplementationOnce(async (_url, _body, options) => {
     await new Promise(resolve => setTimeout(resolve, options.timeout));
     throw Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
@@ -101,6 +105,8 @@ test('unapproved, malformed, and all-negative model outputs keep safe baseline m
   expect(unapproved.body.degradedReason).toBe('not_approved');
   expect(ml).not.toHaveBeenCalled();
   process.env.BEHAVIORAL_MODEL_APPROVED = 'true';
+  process.env.ML_API_TOKEN = 'local-secret';
+  process.env.ML_MODEL_VERSION = 'v1';
   ml.mockResolvedValueOnce({ data: { success: true, modelVersion: 'v1', results: [
     { meal_id: 'wrong', recommended: true, confidence: 0.9 },
   ] } });
@@ -115,6 +121,24 @@ test('unapproved, malformed, and all-negative model outputs keep safe baseline m
   expect(negative.body.degradedReason).toBe('no_positive_predictions');
   expect(negative.body.recommendations.map(meal => meal.mealName)).toEqual(['Eligible']);
   expect(ml.mock.calls[0][1].meals.map(meal => meal.meal_id)).toEqual([String(eligible.id)]);
+  expect(ml.mock.calls[0][1].schemaVersion).toBe('behavioral-v1');
+  expect(ml.mock.calls[0][1].modelVersion).toBe('v1');
+  expect(ml.mock.calls[0][2].headers['X-ML-Token']).toBe('local-secret');
+});
+
+test('model features proxy requires admin and keeps the service token server-side', async () => {
+  process.env.ML_API_TOKEN = 'local-secret';
+  const admin = await User.create({ username: 'model-admin', email: 'model-admin@example.com',
+    password: 'Password123!', role: 'admin' });
+  const adminToken = `Bearer ${jwt.sign({ id: String(admin.id), role: 'admin' }, process.env.JWT_SECRET)}`;
+  const ml = jest.spyOn(axios, 'get').mockResolvedValue({ data: { features: ['calories', 'protein'], modelVersion: 'test-v1' } });
+  expect((await request(app).get('/api/meals/ml/features')).status).toBe(401);
+  expect((await request(app).get('/api/meals/ml/features').set('Authorization', token)).status).toBe(403);
+  const response = await request(app).get('/api/meals/ml/features').set('Authorization', adminToken);
+  expect(response.status).toBe(200);
+  expect(response.body.features).toEqual(['calories', 'protein']);
+  expect(ml.mock.calls[0][1].headers['X-ML-Token']).toBe('local-secret');
+  expect(JSON.stringify(response.body)).not.toContain('local-secret');
 });
 
 test('101 eligible candidates are all evaluated; 501 requests are narrowed', async () => {

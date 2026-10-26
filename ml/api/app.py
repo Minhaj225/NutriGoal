@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from werkzeug.exceptions import BadRequest
 import pickle
 import json
 import hashlib
+import hmac
+import math
 import re
 import numpy as np
 import pandas as pd
-import traceback
 import os
 import sklearn
 
@@ -62,7 +63,75 @@ load_model_artifact()
 
 
 app = Flask(__name__)
-CORS(app)
+app.config['MAX_CONTENT_LENGTH'] = 1_048_576
+
+CUISINES = {'North Indian', 'South Indian', 'Street Food', 'General'}
+CATEGORIES = {'Main Dish', 'Breakfast', 'Snack', 'Side Dish', 'Staple'}
+DIETS = {'Vegetarian', 'Non-Vegetarian'}
+MEAL_FIELDS = {'meal_id', 'meal_name', 'calories', 'protein', 'cuisine', 'category', 'diet'}
+
+
+@app.errorhandler(413)
+def body_too_large(_error):
+    return jsonify({'error': 'body_too_large'}), 413
+
+
+def service_auth():
+    expected = os.environ.get('ML_API_TOKEN')
+    if not expected:
+        return jsonify({'error': 'service_not_configured'}), 503
+    if not hmac.compare_digest(request.headers.get('X-ML-Token', ''), expected):
+        return jsonify({'error': 'unauthorized'}), 401
+    return None
+
+
+def read_json_object():
+    if not request.is_json:
+        return None, (jsonify({'error': 'json_required'}), 415)
+    try:
+        data = request.get_json()
+    except BadRequest:
+        return None, (jsonify({'error': 'invalid_json'}), 400)
+    if not isinstance(data, dict):
+        return None, (jsonify({'error': 'object_required'}), 400)
+    return data, None
+
+
+def valid_version(data):
+    return (data.get('schemaVersion') == 'behavioral-v1' and
+            isinstance(data.get('modelVersion'), str) and
+            0 < len(data['modelVersion']) <= 100 and
+            (model is None or data['modelVersion'] == model_version))
+
+
+def valid_meal(meal):
+    return (isinstance(meal, dict) and set(meal) == MEAL_FIELDS and
+            isinstance(meal['meal_id'], str) and
+            re.fullmatch(r'[a-fA-F0-9]{24}', meal['meal_id']) is not None and
+            isinstance(meal['meal_name'], str) and
+            0 < len(meal['meal_name'].strip()) <= 120 and
+            all(type(meal[key]) in (int, float) and math.isfinite(meal[key]) and
+                0 <= meal[key] <= 10000 for key in ('calories', 'protein')) and
+            isinstance(meal['cuisine'], str) and meal['cuisine'] in CUISINES and
+            isinstance(meal['category'], str) and meal['category'] in CATEGORIES and
+            isinstance(meal['diet'], str) and meal['diet'] in DIETS)
+
+
+def predict_valid_rows(meals):
+    rows = pd.DataFrame([create_feature_vector(meal) for meal in meals], columns=feature_columns)
+    predictions = model.predict(rows)
+    probabilities = model.predict_proba(rows)
+    if len(predictions) != len(meals) or len(probabilities) != len(meals):
+        raise ValueError('Incomplete model output')
+    positive_index = list(model.classes_).index(1)
+    output = []
+    for meal, predicted, probability in zip(meals, predictions, probabilities):
+        confidence = float(probability[positive_index])
+        if not math.isfinite(confidence) or not 0 <= confidence <= 1:
+            raise ValueError('Invalid model probability')
+        output.append({'meal_id': meal['meal_id'], 'recommended': bool(predicted),
+                       'confidence': confidence})
+    return output
 
 @app.route('/')
 def index():
@@ -71,6 +140,9 @@ def index():
 
 @app.route('/features', methods=['GET'])
 def get_features():
+    denied = service_auth()
+    if denied:
+        return denied
     if model is None:
         return jsonify({"error": "model_unavailable"}), 503
     return jsonify({
@@ -81,118 +153,62 @@ def get_features():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """
-    Predict meal recommendation for a single meal
-    Expected input format:
-    {
-        "meal_name": "Dal Tadka",
-        "calories": 180,
-        "protein": 9,
-        "cuisine": "North Indian",
-        "category": "Main Dish", 
-        "diet": "Vegetarian"
-    }
-    """
+    denied = service_auth()
+    if denied:
+        return denied
+    data, error = read_json_object()
+    if error:
+        return error
+    if not valid_version(data) or not valid_meal({k: v for k, v in data.items()
+                                                   if k not in ('schemaVersion', 'modelVersion')}):
+        return jsonify({'error': 'invalid_meal'}), 422
     if model is None:
-        return jsonify({"error": "model_unavailable"}), 503
+        return jsonify({'error': 'model_unavailable'}), 503
     try:
-        data = request.get_json()
-        
-        required_fields = ['calories', 'protein', 'cuisine', 'category', 'diet']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
-        
-        # Create a DataFrame to preserve feature names and avoid sklearn warnings
-        feature_vector = create_feature_vector(data)
-        feature_df = pd.DataFrame([feature_vector], columns=feature_columns)
-
-        prediction = model.predict(feature_df)
-        prediction_proba = model.predict_proba(feature_df)
-        
-        return jsonify({
-            "meal_name": data.get('meal_name', 'Unknown'),
-            "recommended": bool(prediction[0]),
-            "confidence": float(prediction_proba[0][1]),  # Probability of liking
-            "features_used": len(feature_columns)
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+        return jsonify({**predict_valid_rows([data])[0], 'modelVersion': model_version})
+    except Exception:
+        app.logger.exception('Single inference failed')
+        return jsonify({'error': 'internal_error'}), 500
 
 @app.route('/predict_batch', methods=['POST'])
 def predict_batch():
-    """
-    Predict meal recommendations for multiple meals
-    Expected input format:
-    {
-        "meals": [
-            {
-                "meal_name": "Dal Tadka",
-                "calories": 180,
-                "protein": 9,
-                "cuisine": "North Indian",
-                "category": "Main Dish",
-                "diet": "Vegetarian"
-            },
-            ...
-        ]
-    }
-    """
-    if model is None:
-        return jsonify({"error": "model_unavailable"}), 503
+    denied = service_auth()
+    if denied:
+        return denied
+    data, error = read_json_object()
+    if error:
+        return error
+    if set(data) != {'schemaVersion', 'modelVersion', 'meals'} or not valid_version(data):
+        return jsonify({'error': 'invalid_envelope'}), 422
+    meals = data['meals']
+    if not isinstance(meals, list) or not 1 <= len(meals) <= 500:
+        return jsonify({'error': 'invalid_batch_size'}), 400
+    results = [None] * len(meals)
+    valid = []
+    valid_indices = []
+    for index, meal in enumerate(meals):
+        if valid_meal(meal):
+            valid.append(meal)
+            valid_indices.append(index)
+        else:
+            meal_id = meal.get('meal_id') if isinstance(meal, dict) else None
+            results[index] = {'meal_id': meal_id if isinstance(meal_id, str) and
+                              re.fullmatch(r'[a-fA-F0-9]{24}', meal_id) else None,
+                              'error': 'invalid_meal'}
+    if len({meal['meal_id'] for meal in valid}) != len(valid):
+        return jsonify({'error': 'duplicate_meal_id'}), 422
+    if model is None and valid:
+        return jsonify({'error': 'model_unavailable'}), 503
     try:
-        data = request.get_json()
-        meals = data.get('meals', [])
-
-        if not meals:
-            return jsonify({"error": "No meals provided"}), 400
-
-        # Build a single DataFrame for all valid meals
-        feature_rows = []
-        valid_indices = []
-        errors = [None] * len(meals)
-
-        for idx, meal in enumerate(meals):
-            try:
-                fv = create_feature_vector(meal)
-                feature_rows.append(fv)
-                valid_indices.append(idx)
-            except Exception as e:
-                errors[idx] = str(e)
-
-        preds = []
-        probas = []
-        if feature_rows:
-            feature_df = pd.DataFrame(feature_rows, columns=feature_columns)
-            preds = model.predict(feature_df)
-            probas = model.predict_proba(feature_df)
-
-        # Merge predictions back to original order
-        results = []
-        vptr = 0
-        for idx, meal in enumerate(meals):
-            if errors[idx] is not None:
-                results.append({
-                    "meal_name": meal.get('meal_name', 'Unknown'),
-                    "error": errors[idx]
-                })
-            else:
-                results.append({
-                    "meal_name": meal.get('meal_name', 'Unknown'),
-                    "recommended": bool(preds[vptr]),
-                    "confidence": float(probas[vptr][1])
-                })
-                vptr += 1
-
-        return jsonify({
-            "results": results,
-            "total_meals": len(meals),
-            "successful_predictions": len([r for r in results if 'error' not in r])
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+        if valid:
+            for index, result in zip(valid_indices, predict_valid_rows(valid)):
+                results[index] = result
+        has_errors = len(valid) != len(meals)
+        return jsonify({'success': not has_errors, 'modelVersion': model_version,
+                        'results': results}), 422 if has_errors else 200
+    except Exception:
+        app.logger.exception('Batch inference failed')
+        return jsonify({'error': 'internal_error'}), 500
 
 def create_feature_vector(meal_data):
     """
@@ -225,14 +241,17 @@ def create_feature_vector(meal_data):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy" if model is not None else "degraded",
+    available = model is not None and bool(os.environ.get('ML_API_TOKEN'))
+    return jsonify({"status": "healthy" if available else "degraded",
                     "modelStatus": model_status, "modelVersion": model_version,
                     "timestamp": str(pd.Timestamp.now())}), 200
 
 
 @app.route('/ready', methods=['GET'])
 def ready_check():
-    return jsonify({"modelStatus": model_status, "modelVersion": model_version}), 200 if model is not None else 503
+    available = model is not None and bool(os.environ.get('ML_API_TOKEN'))
+    return jsonify({"modelStatus": model_status, "modelVersion": model_version,
+                    "serviceConfigured": bool(os.environ.get('ML_API_TOKEN'))}), 200 if available else 503
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

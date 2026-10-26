@@ -16,6 +16,22 @@ let cachedStats = null;
 let lastStatsCacheTime = 0;
 const STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+router.get('/ml/features', authenticateToken, authorizeAdmin, async (_req, res) => {
+  if (!process.env.ML_API_TOKEN) return res.status(503).json({ error: 'model_unavailable' });
+  try {
+    const response = await axios.get(`${ML_API_URL}/features`, {
+      headers: { 'X-ML-Token': process.env.ML_API_TOKEN },
+      timeout: 2500, maxContentLength: 1000000,
+    });
+    if (!Array.isArray(response.data?.features) || response.data.features.length > 100 ||
+        response.data.features.some(feature => typeof feature !== 'string' || feature.length > 100) ||
+        typeof response.data.modelVersion !== 'string') throw new Error('Invalid model metadata');
+    return res.json({ features: response.data.features, modelVersion: response.data.modelVersion });
+  } catch {
+    return res.status(503).json({ error: 'model_unavailable' });
+  }
+});
+
 // Get meal statistics
 router.get("/stats", async (req, res, next) => {
   try {
@@ -182,7 +198,10 @@ const recommend = async (req, res, next) => {
     }
     const totalEligible = meals.length;
     const requestedMode = process.env.RECOMMENDER_MODE || 'baseline';
-    const degradedReason = requestedMode === 'behavioral' ? 'not_approved' : null;
+    const modelConfigured = !!(process.env.ML_API_TOKEN && process.env.ML_MODEL_VERSION);
+    const degradedReason = requestedMode === 'behavioral'
+      ? process.env.BEHAVIORAL_MODEL_APPROVED === 'true' ? 'not_configured' : 'not_approved'
+      : null;
     
     if (meals.length === 0) {
       return res.json({
@@ -199,13 +218,16 @@ const recommend = async (req, res, next) => {
     let recommendationMode = 'baseline';
     let reason = degradedReason;
     let modelVersion = null;
-    if (requestedMode === 'behavioral' && process.env.BEHAVIORAL_MODEL_APPROVED === 'true') {
+    if (requestedMode === 'behavioral' && process.env.BEHAVIORAL_MODEL_APPROVED === 'true' && modelConfigured) {
       try {
         const mlResponse = await axios.post(`${ML_API_URL}/predict_batch`, {
+          schemaVersion: 'behavioral-v1', modelVersion: process.env.ML_MODEL_VERSION,
           meals: meals.map(meal => ({ meal_id: String(meal._id), meal_name: meal.mealName,
             calories: meal.calories, protein: meal.protein, cuisine: meal.cuisine,
             category: meal.category, diet: meal.dietaryPreference })),
-        }, { timeout: 2500, maxContentLength: 1_000_000, maxBodyLength: 1_000_000 });
+        }, { headers: { 'X-ML-Token': process.env.ML_API_TOKEN },
+          timeout: 2500, maxContentLength: 1_000_000, maxBodyLength: 1_000_000 });
+        if (mlResponse.data?.modelVersion !== process.env.ML_MODEL_VERSION) throw new Error('Wrong model version');
         const predictions = validatePredictions(mlResponse.data, meals);
         const ranked = behavioralRank(meals, predictions, limit);
         if (ranked.length) {

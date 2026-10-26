@@ -1,91 +1,48 @@
-"""
-Test script for the enhanced Meal Recommendation API
-Run this after starting the Flask API server
-"""
-import requests
+"""Manual smoke check for a running Flask model service."""
+
+import os
 import json
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
-API_BASE_URL = "http://localhost:5000"
+API_BASE_URL = os.environ.get('ML_API_URL', 'http://localhost:5000')
 
-def test_api():
-    print("🧪 Testing Enhanced Meal Recommendation API")
-    print("=" * 50)
-    
-    # Test 1: API Info
-    print("\n1. Testing API Info...")
-    response = requests.get(f"{API_BASE_URL}/")
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
-    
-    # Test 2: Get Features
-    print("\n2. Testing Features Endpoint...")
-    response = requests.get(f"{API_BASE_URL}/features")
-    print(f"Status: {response.status_code}")
-    features_data = response.json()
-    print(f"Feature count: {features_data.get('feature_count', 0)}")
-    print(f"Model status: {features_data.get('modelStatus', 'ready' if response.ok else 'unavailable')}")
-    
-    # Test 3: Single Prediction
-    print("\n3. Testing Single Meal Prediction...")
-    meal_data = {
-        "meal_name": "Dal Tadka",
-        "calories": 180,
-        "protein": 9,
-        "cuisine": "North Indian",
-        "category": "Main Dish",
-        "diet": "Vegetarian"
-    }
-    
-    response = requests.post(f"{API_BASE_URL}/predict", json=meal_data)
-    print(f"Status: {response.status_code}")
-    print(f"Prediction: {json.dumps(response.json(), indent=2)}")
-    
-    # Test 4: Batch Prediction
-    print("\n4. Testing Batch Predictions...")
-    batch_data = {
-        "meals": [
-            {
-                "meal_name": "Butter Chicken",
-                "calories": 350,
-                "protein": 28,
-                "cuisine": "North Indian",
-                "category": "Main Dish",
-                "diet": "Non-Vegetarian"
-            },
-            {
-                "meal_name": "Idli",
-                "calories": 140,
-                "protein": 4,
-                "cuisine": "South Indian",
-                "category": "Breakfast",
-                "diet": "Vegetarian"
-            },
-            {
-                "meal_name": "Samosa",
-                "calories": 260,
-                "protein": 4,
-                "cuisine": "Street Food",
-                "category": "Snack",
-                "diet": "Vegetarian"
-            }
-        ]
-    }
-    
-    response = requests.post(f"{API_BASE_URL}/predict_batch", json=batch_data)
-    print(f"Status: {response.status_code}")
-    print(f"Batch Results: {json.dumps(response.json(), indent=2)}")
-    
-    # Test 5: Health Check
-    print("\n5. Testing Health Check...")
-    response = requests.get(f"{API_BASE_URL}/health")
-    print(f"Status: {response.status_code}")
-    print(f"Health: {json.dumps(response.json(), indent=2)}")
 
-if __name__ == "__main__":
+def call(path, headers=None, body=None):
+    request = Request(f'{API_BASE_URL}{path}', headers={**(headers or {}),
+        **({'Content-Type': 'application/json'} if body is not None else {})},
+        data=json.dumps(body).encode() if body is not None else None)
     try:
-        test_api()
-    except requests.exceptions.ConnectionError:
-        print("❌ Could not connect to API. Make sure the Flask server is running on port 5000")
-        print("Run: python api.py")
-    except Exception as e:
-        print(f"❌ Error: {e}")
+        response = urlopen(request, timeout=5)
+    except HTTPError as error:
+        response = error
+    with response:
+        return response.status, json.load(response)
+
+
+def main():
+    token = os.environ.get('ML_API_TOKEN')
+    if not token:
+        raise SystemExit('Set the server-side ML_API_TOKEN before running this check')
+    headers = {'X-ML-Token': token}
+    health_status, health = call('/health')
+    ready_status, ready = call('/ready')
+    print('Health:', health_status, health)
+    print('Readiness:', ready_status, ready)
+    if ready_status != 200:
+        print('No approved model is deployed; backend baseline remains available')
+        return
+    features_status, features = call('/features', headers)
+    if features_status != 200:
+        raise SystemExit(f'Feature request failed: {features_status}')
+    version = features['modelVersion']
+    meal = {'meal_id': 'a' * 24, 'meal_name': 'Dal Tadka', 'calories': 180,
+            'protein': 9, 'cuisine': 'North Indian', 'category': 'Main Dish',
+            'diet': 'Vegetarian'}
+    body = {'schemaVersion': 'behavioral-v1', 'modelVersion': version, 'meals': [meal]}
+    prediction_status, prediction = call('/predict_batch', headers, body)
+    print('Prediction:', prediction_status, prediction)
+
+
+if __name__ == '__main__':
+    main()

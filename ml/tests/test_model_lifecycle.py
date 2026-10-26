@@ -59,8 +59,9 @@ class ModelLifecycleTests(unittest.TestCase):
                              'schemaVersion': 'behavioral-v1'})
         self.assertTrue(service.load_model_artifact(self.path))
         client = service.app.test_client()
-        self.assertEqual(client.get('/ready').status_code, 200)
-        self.assertEqual(client.get('/features').json['modelVersion'], 'test-v1')
+        with patch.dict(os.environ, {'ML_API_TOKEN': 'test-secret'}):
+            self.assertEqual(client.get('/ready').status_code, 200)
+            self.assertEqual(client.get('/features', headers={'X-ML-Token': 'test-secret'}).json['modelVersion'], 'test-v1')
         with patch.object(service, 'load_model_artifact', side_effect=AssertionError('reloaded')):
             self.assertEqual(client.get('/health').status_code, 200)
 
