@@ -3,6 +3,9 @@ const { normalizeAllergens } = require('../services/allergens');
 
 const mealSchema = new mongoose.Schema({
   mealName: { type: String, required: true },
+  catalogueKey: String,
+  catalogueSource: String,
+  catalogueExternalId: String,
   cuisine: { 
     type: String, 
     required: true,
@@ -50,5 +53,8 @@ mealSchema.index({ calories: 1, protein: 1 });
 mealSchema.index({ popularity: -1, averageRating: -1 });
 mealSchema.index({ averageRating: -1 });
 mealSchema.index({ protein: -1 });
+// New imports are unique while legacy rows without keys await the Task 12 migration.
+mealSchema.index({ catalogueKey: 1 }, { unique: true,
+  partialFilterExpression: { catalogueKey: { $type: 'string' } } });
 
 module.exports = mongoose.model("Meal", mealSchema);

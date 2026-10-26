@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { Buffer } from 'node:buffer';
 
 async function mockApi(page, role = 'admin') {
   const writes = [];
@@ -101,4 +102,40 @@ test('admin feature display uses the authenticated backend proxy', async ({ page
   expect(requests.length).toBeGreaterThan(0);
   expect(requests.every(item => item.url.includes('/api/meals/ml/features') &&
     item.token === 'Bearer test.admin.token')).toBe(true);
+});
+
+test('CSV import previews and reports server-confirmed counts', async ({ page }) => {
+  await mockApi(page);
+  const calls = [];
+  await page.route('**/api/meals/bulk-import', route => {
+    const body = route.request().postDataJSON();
+    calls.push(body);
+    return route.fulfill({ json: { success: true, created: 0, updated: 1,
+      unchanged: 0, rejected: 0, dryRun: body.dryRun } });
+  });
+  await login(page);
+  await expect(page).toHaveURL(/\/admin\/meals$/);
+  const csv = 'mealName,cuisine,category,dietaryPreference,calories,protein,servingSize\n"Dal, special",General,Main Dish,Vegetarian,200,10,200g';
+  await page.getByLabel('CSV File').setInputFiles({ name: 'meals.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await page.getByRole('button', { name: 'Preview CSV' }).click();
+  await expect(page.getByText('Preview: 0 created, 1 updated, 0 unchanged, 0 rejected')).toBeVisible();
+  expect(calls[0]).toEqual({ csv, dryRun: true });
+  await page.getByRole('button', { name: 'Apply Import' }).click();
+  await expect.poll(() => calls.length).toBe(2);
+  await expect(page.getByText('0 created, 1 updated, 0 unchanged, 0 rejected', { exact: true })).toBeVisible();
+  expect(calls[1]).toEqual({ csv, dryRun: false });
+});
+
+test('CSV validation errors show the server row count and reason', async ({ page }) => {
+  await mockApi(page);
+  await page.route('**/api/meals/bulk-import', route => route.fulfill({ status: 400, json: {
+    error: 'invalid_import', rejected: 1, rowErrors: [{ row: 2, message: 'Invalid calories' }],
+  } }));
+  await login(page);
+  await expect(page).toHaveURL(/\/admin\/meals$/);
+  await page.getByLabel('CSV File').setInputFiles({ name: 'bad.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('mealName,calories\nDal,-2') });
+  await page.getByRole('button', { name: 'Preview CSV' }).click();
+  await expect(page.getByText('1 rejected: Row 2: Invalid calories')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply Import' })).toHaveCount(0);
 });

@@ -5,6 +5,7 @@ const Student = require("../models/Student");
 const { recordMealFeedback } = require('../services/feedback');
 const { buildEligibilityFilter } = require('../services/eligibility');
 const { baselineRank, behavioralRank, validatePredictions } = require('../services/recommendations');
+const { parseAndValidateMeals, importMeals } = require('../services/catalogueImport');
 const axios = require("axios");
 const { authenticateToken, authorizeAdmin, requireStudent } = require("../middleware/auth");
 const { cuisines, categories, diets, email, id, integer, number, query, choice, invalid, keys, meal: validateMeal } = require('../validation');
@@ -342,19 +343,20 @@ router.delete("/:id", authenticateToken, authorizeAdmin, async (req, res, next) 
 // Bulk import meals from CSV data
 router.post("/bulk-import", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
-    const { meals } = req.body;
-    
-    keys(req.body, ['meals']);
-    if (!Array.isArray(meals) || meals.length === 0 || meals.length > 100) invalid('Meals array must contain 1 to 100 entries');
-
-    const importedMeals = await Meal.insertMany(meals.map(item => validateMeal(item, true)), { ordered: false });
-    
-    res.json({
-      success: true,
-      message: `${importedMeals.length} meals imported successfully`,
-      importedCount: importedMeals.length
-    });
-  } catch (err) { next(err); }
+    keys(req.body, ['csv', 'meals', 'dryRun']);
+    if (req.body.dryRun !== undefined && typeof req.body.dryRun !== 'boolean') invalid('Invalid dryRun');
+    const { rows, errors } = parseAndValidateMeals(req.body);
+    if (errors.length) return res.status(400).json({ error: 'invalid_import', rowErrors: errors,
+      created: 0, updated: 0, unchanged: 0, rejected: errors.length });
+    const result = await importMeals(rows, { dryRun: req.body.dryRun === true });
+    return res.json({ success: true, ...result, importedCount: result.created,
+      message: `${result.created} created, ${result.updated} updated, ${result.unchanged} unchanged` });
+  } catch (error) {
+    if (error.code === 'partial_unknown') return res.status(503).json({ error: error.code,
+      message: error.message, state: 'partial_or_unknown' });
+    if (error.status === 409) return res.status(409).json({ error: 'migration_required', message: error.message });
+    return next(error);
+  }
 });
 
 module.exports = router;

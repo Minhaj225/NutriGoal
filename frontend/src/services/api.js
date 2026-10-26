@@ -109,8 +109,10 @@ export const mealAPI = {
   },
 
   // Bulk import meals (admin)
-  bulkImportMeals: async (meals) => {
-    const response = await api.post('/meals/bulk-import', { meals });
+  bulkImportMeals: async (input, dryRun = false) => {
+    const response = await api.post('/meals/bulk-import', {
+      ...(typeof input === 'string' ? { csv: input } : { meals: input }), dryRun,
+    });
     return response.data;
   },
 

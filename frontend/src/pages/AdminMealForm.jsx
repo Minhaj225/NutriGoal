@@ -32,6 +32,7 @@ const AdminMealForm = () => {
   const [mlFeatures, setMlFeatures] = useState([]);
   const [modelStatus, setModelStatus] = useState("unavailable");
   const [bulkImportFile, setBulkImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
   const [mealToDelete, setMealToDelete] = useState(null);
 
   const cuisineOptions = [
@@ -160,6 +161,7 @@ const AdminMealForm = () => {
 
   const handleBulkImport = async (e) => {
     e.preventDefault();
+    const uploadForm = e.currentTarget;
     if (!bulkImportFile) {
       setError("Please select a CSV file");
       return;
@@ -169,29 +171,24 @@ const AdminMealForm = () => {
     setError(null);
 
     try {
-      const text = await bulkImportFile.text();
-      const lines = text.split("\n");
-      const headers = lines[0].split(",").map((h) => h.trim());
-
-      const meals = lines
-        .slice(1)
-        .filter((line) => line.trim())
-        .map((line) => {
-          const values = line.split(",").map((v) => v.trim());
-          const meal = {};
-          headers.forEach((header, index) => {
-            meal[header] = values[index];
-          });
-          return meal;
-        });
-
-      await mealAPI.bulkImportMeals(meals);
-      setSuccess(`Successfully imported ${meals.length} meals!`);
-      setPage(1);
-      loadMeals();
-      setBulkImportFile(null);
+      if (bulkImportFile.size > 1_048_576) throw new Error("CSV must be 1 MiB or smaller");
+      const response = await mealAPI.bulkImportMeals(await bulkImportFile.text(), !importPreview);
+      const counts = `${response.created} created, ${response.updated} updated, ${response.unchanged} unchanged, ${response.rejected} rejected`;
+      if (!importPreview) {
+        setImportPreview(response);
+        setSuccess(`Preview: ${counts}`);
+      } else {
+        setSuccess(counts);
+        setImportPreview(null);
+        setBulkImportFile(null);
+        uploadForm.reset();
+        setPage(1);
+        loadMeals();
+      }
     } catch (err) {
-      setError("Failed to import meals: " + err.message);
+      const rows = err.response?.data?.rowErrors;
+      setError(rows?.length ? `${err.response.data.rejected} rejected: ${rows.map(item => `Row ${item.row}: ${item.message}`).join('; ')}` :
+        `Failed to import meals: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -468,7 +465,7 @@ const AdminMealForm = () => {
                     id="csvFile"
                     type="file"
                     accept=".csv"
-                    onChange={(e) => setBulkImportFile(e.target.files[0])}
+                    onChange={(e) => { setBulkImportFile(e.target.files[0]); setImportPreview(null); }}
                     className="block w-full text-sm text-text-secondary
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-full file:border-0
@@ -482,7 +479,7 @@ const AdminMealForm = () => {
                   className="w-full px-6 py-2.5 bg-surface border border-border rounded-full text-sm font-medium hover:bg-surface-alt transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={loading || !bulkImportFile}
                 >
-                  {loading ? <LoadingSpinner size="sm" /> : "Import CSV"}
+                  {loading ? <LoadingSpinner size="sm" /> : importPreview ? "Apply Import" : "Preview CSV"}
                 </button>
               </form>
             </section>
