@@ -6,6 +6,7 @@ const mealSchema = new mongoose.Schema({
   catalogueKey: String,
   catalogueSource: String,
   catalogueExternalId: String,
+  catalogueSourceCategory: String,
   cuisine: { 
     type: String, 
     required: true,

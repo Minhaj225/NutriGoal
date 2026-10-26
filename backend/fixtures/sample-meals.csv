@@ -1,2 +1,2 @@
-mealName,cuisine,category,dietaryPreference,calories,protein,servingSize,allergens,source,externalId
-Sample Dal,General,Main Dish,Vegetarian,200,10,200g,,sample,sample-dal-1
+mealName,cuisine,category,dietaryPreference,calories,protein,servingSize,allergens,source,externalId,sourceCategory
+Sample Dal,General,Main Dish,Vegetarian,200,10,200g,,sample,sample-dal-1,Main Dish

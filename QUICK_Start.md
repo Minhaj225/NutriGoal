@@ -11,7 +11,9 @@ cd backend
 npm install
 cp .env.example .env # Edit .env with your MongoDB URI and configuration
 
-npm run seed # Run once to Populate database with sample meals
+export MIGRATION_URI='mongodb://127.0.0.1:27017/nutrigoal' # Replace with your explicitly chosen database
+npm run seed -- --uri-env MIGRATION_URI --file fixtures/sample-meals.csv # Preview only
+# Review ../docs/catalogue-migration.md, then use --apply --confirm-db <database>
 npm run create-admin # Run once to Create an admin account for the dashboard
 
 npm run dev

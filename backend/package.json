@@ -9,6 +9,9 @@
     "vercel-build": "echo 'Backend build complete'",
     "test": "jest --runInBand",
     "seed": "node scripts/seedMeals.js",
+    "migrate:catalogue": "node scripts/migrateCatalogue.js",
+    "migrate:feedback": "node scripts/migrateFeedback.js",
+    "restore:catalogue": "node scripts/restoreCatalogueBackup.js",
     "create-admin": "node scripts/createAdmin.js"
   },
   "dependencies": {

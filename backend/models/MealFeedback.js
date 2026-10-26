@@ -5,7 +5,7 @@ const schema = new mongoose.Schema({
   mealId: { type: mongoose.Schema.Types.ObjectId, ref: 'Meal', required: true },
   rating: { type: Number, min: 1, max: 5 },
   liked: { type: Boolean, required: true },
-  source: { type: String, enum: ['rating', 'explicit'], required: true },
+  source: { type: String, enum: ['rating', 'explicit', 'legacy_unverified'], required: true },
   feedbackAt: { type: Date, default: Date.now },
   schemaVersion: { type: Number, default: 2 },
 }, { timestamps: true });

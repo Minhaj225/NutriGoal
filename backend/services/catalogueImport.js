@@ -10,17 +10,25 @@ const headers = {
   'Protein (g)': 'protein', 'Carbohydrates (g)': 'carbohydrates',
   'Fats (g)': 'fats', 'Serving Size': 'servingSize',
   'Allergens': 'allergens', 'Ingredients': 'ingredients',
-  'Source': 'source', 'External ID': 'externalId',
+  'Source': 'source', 'External ID': 'externalId', 'Source Category': 'sourceCategory',
 };
 const fields = new Set(['mealName', 'cuisine', 'category', 'dietaryPreference',
   'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens',
   'allergenStatus', 'ingredients', 'description', 'imageUrl', 'nutritionScore',
-  'source', 'externalId']);
+  'source', 'externalId', 'sourceCategory']);
 const numeric = new Set(['calories', 'protein', 'carbohydrates', 'fats', 'nutritionScore']);
 const lists = new Set(['allergens', 'ingredients']);
 
 function identity(value) {
   return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function catalogueKeyFor({ mealName, servingSize, dietaryPreference, source, externalId }) {
+  if (!mealName || !servingSize || !dietaryPreference) throw new Error('Catalogue identity is incomplete');
+  const keyParts = externalId ? [identity(source), identity(externalId)]
+    : [identity(mealName), identity(servingSize), identity(dietaryPreference)];
+  return `${externalId ? 'source' : 'fallback'}:${createHash('sha256')
+    .update(JSON.stringify(keyParts)).digest('hex')}`;
 }
 
 function normalizeRow(input, fromCsv) {
@@ -36,28 +44,30 @@ function normalizeRow(input, fromCsv) {
       } else if (lists.has(key)) row[key] = value ? value.split('|').map(item => item.trim()).filter(Boolean) : [];
       else row[key] = value.trim();
     }
-    for (const key of ['source', 'externalId', 'allergenStatus']) {
+    for (const key of ['source', 'externalId', 'allergenStatus', 'sourceCategory']) {
       if (row[key] === '') delete row[key];
     }
   }
   const source = row.source;
   const externalId = row.externalId;
+  const sourceCategory = row.sourceCategory;
   if (source !== undefined && (typeof source !== 'string' || !source.trim() || source.length > 80)) throw new Error('Invalid source');
   if (externalId !== undefined && (typeof externalId !== 'string' || !externalId.trim() || externalId.length > 120 || !source)) {
     throw new Error('External ID requires a source');
   }
+  if (sourceCategory !== undefined && (typeof sourceCategory !== 'string' ||
+      !sourceCategory.trim() || sourceCategory.length > 80)) throw new Error('Invalid source category');
   delete row.source;
   delete row.externalId;
+  delete row.sourceCategory;
   const data = validateMeal(row, true);
   if (!data.servingSize) throw new Error('Serving size is required for catalogue identity');
   if (data.allergens) data.allergens = normalizeAllergens(data.allergens);
   if (!data.allergenStatus) data.allergenStatus = 'unknown';
-  const keyParts = externalId ? [identity(source), identity(externalId)]
-    : [identity(data.mealName), identity(data.servingSize), identity(data.dietaryPreference)];
-  const catalogueKey = `${externalId ? 'source' : 'fallback'}:${createHash('sha256')
-    .update(JSON.stringify(keyParts)).digest('hex')}`;
+  const catalogueKey = catalogueKeyFor({ ...data, source, externalId });
   return { ...data, catalogueKey, ...(source ? { catalogueSource: source.trim() } : {}),
-    ...(externalId ? { catalogueExternalId: externalId.trim() } : {}) };
+    ...(externalId ? { catalogueExternalId: externalId.trim() } : {}),
+    ...(sourceCategory ? { catalogueSourceCategory: sourceCategory.trim() } : {}) };
 }
 
 function parseAndValidateMeals({ csv, meals } = {}) {
@@ -151,4 +161,4 @@ async function importMeals(rows, { dryRun = false, retried = false } = {}) {
   }
 }
 
-module.exports = { parseAndValidateMeals, importMeals };
+module.exports = { parseAndValidateMeals, importMeals, catalogueKeyFor };
