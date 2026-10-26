@@ -18,8 +18,10 @@ test('an allergy profile shows only verified matches and explains excluded meals
   await page.route('**/api/meals/recommend/me**', route => route.fulfill({ json: {
     success: true, recommendations: [{ _id: '000000000000000000000010', mealName: 'Safe Dal',
       cuisine: 'North Indian', category: 'Main Dish', dietaryPreference: 'Vegetarian',
-      allergens: [], allergenStatus: 'verified', calories: 300, protein: 20 }],
-    excludedUnknownAllergenCount: 2,
+      allergens: [], allergenStatus: 'verified', calories: 300, protein: 20,
+      confidence: null, rankingScore: 0.36 }],
+    excludedUnknownAllergenCount: 2, totalEligible: 1, totalMealsEvaluated: 1,
+    recommendationMode: 'baseline', degradedReason: 'model_unavailable',
   } }));
 
   await page.goto('/profile');
@@ -31,5 +33,8 @@ test('an allergy profile shows only verified matches and explains excluded meals
   await page.goto('/recommendations');
   await page.getByRole('button', { name: 'Get My Recommendations' }).click();
   await expect(page.getByRole('heading', { name: 'Safe Dal' })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('2 otherwise matching meals excluded');
+  await expect(page.getByText(/2 otherwise matching meals excluded/)).toBeVisible();
+  await expect(page.getByText(/Showing the eligible meals ranked by verified crowd ratings/)).toBeVisible();
+  await expect(page.getByText('Crowd rating ranking')).toBeVisible();
+  await expect(page.getByText('Avg Confidence')).toHaveCount(0);
 });

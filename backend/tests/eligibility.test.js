@@ -55,20 +55,14 @@ test('unknown status can appear without allergies, but diet selection remains ex
   expect(names).toEqual(['Meat Curry', 'Unknown meat']);
 });
 
-test('ML and fallback only receive eligible meals and report unknown exclusions', async () => {
+test('baseline ranking only receives eligible meals and reports unknown exclusions', async () => {
   const token = `Bearer ${jwt.sign({ id: String(allergyUser.id), role: 'student' }, process.env.JWT_SECRET)}`;
-  const ml = jest.spyOn(axios, 'post').mockImplementation(async (_url, body) => ({ data: {
-    results: body.meals.map(() => ({ recommended: true, confidence: 0.9 })),
-  } }));
+  const ml = jest.spyOn(axios, 'post');
   const predicted = await request(app).get('/api/meals/recommend/me').set('Authorization', token);
   expect(predicted.status).toBe(200);
   expect(predicted.body.recommendations.map(meal => meal.mealName)).toEqual(['Safe Dal']);
   expect(predicted.body.excludedUnknownAllergenCount).toBe(2);
-  expect(ml.mock.calls[0][1].meals.map(meal => meal.meal_name)).toEqual(['Safe Dal']);
-  ml.mockRejectedValueOnce(new Error('ML offline'));
-  const fallback = await request(app).get('/api/meals/recommend/me').set('Authorization', token);
-  expect(fallback.status).toBe(200);
-  expect(fallback.body.recommendations.map(meal => meal.mealName)).toEqual(['Safe Dal']);
+  expect(ml).not.toHaveBeenCalled();
 });
 
 test('inactive meals are absent from public detail and feedback', async () => {

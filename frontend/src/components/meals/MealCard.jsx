@@ -69,11 +69,6 @@ const MealCard = ({
           <h3 className="text-xl font-semibold leading-tight text-text-primary">
             {meal.mealName}
           </h3>
-          {meal.confidence && (
-            <div className="px-3 py-1 bg-primary-muted text-primary rounded-full text-xs font-medium whitespace-nowrap ml-2">
-              {Math.round(meal.confidence * 100)}% match
-            </div>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-4">
@@ -116,7 +111,7 @@ const MealCard = ({
           </div>
           {meal.mlRecommended && (
             <div className="px-3 py-1 bg-primary-muted text-primary rounded-full text-xs font-medium">
-              AI Recommended
+              Model pick
             </div>
           )}
         </div>

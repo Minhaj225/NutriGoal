@@ -14,6 +14,7 @@ const Recommendations = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [excludedUnknownAllergenCount, setExcludedUnknownAllergenCount] = useState(0);
+  const [recommendationInfo, setRecommendationInfo] = useState(null);
   const [student, setStudent] = useState(null);
   const [filters, setFilters] = useState({
     limit: 10,
@@ -50,6 +51,7 @@ const Recommendations = () => {
     setError("");
     setSuccess("");
     setExcludedUnknownAllergenCount(0);
+    setRecommendationInfo(null);
 
     try {
       const response = await mealAPI.getRecommendations(filters);
@@ -57,6 +59,7 @@ const Recommendations = () => {
       if (response.success) {
         setRecommendations(response.recommendations || []);
         setExcludedUnknownAllergenCount(response.excludedUnknownAllergenCount || 0);
+        setRecommendationInfo(response);
 
         if (response.recommendations.length === 0) {
           setError(response.message || "No meals match your profile filters.");
@@ -215,6 +218,11 @@ const Recommendations = () => {
             {excludedUnknownAllergenCount} otherwise matching meal{excludedUnknownAllergenCount === 1 ? '' : 's'} excluded because allergen information is unverified.
           </p>
         )}
+        {recommendationInfo?.degradedReason && recommendationInfo.degradedReason !== 'not_approved' && (
+          <p role="status" className="bg-warning-muted border border-warning/20 rounded-lg p-4 mb-8 text-sm text-text-secondary">
+            The model is unavailable or returned no usable picks. Showing the eligible meals ranked by verified crowd ratings instead.
+          </p>
+        )}
 
         {/* Success Display */}
         {success && (
@@ -256,7 +264,7 @@ const Recommendations = () => {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight">Your Recommendations ({recommendations.length})</h2>
               <div className="text-sm text-text-muted">
-                {recommendations.filter((m) => m.mlRecommended).length} AI-powered
+                {recommendationInfo?.recommendationMode === 'behavioral' ? 'Behavioral model ranking' : 'Crowd rating ranking'}
               </div>
             </div>
 
@@ -279,27 +287,25 @@ const Recommendations = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <div className="text-sm text-text-muted mb-1">Total Evaluated</div>
-                  <div className="text-2xl font-bold font-mono text-text-primary">99</div>
+                  <div className="text-2xl font-bold font-mono text-text-primary">{recommendationInfo?.totalMealsEvaluated ?? recommendations.length}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-text-muted mb-1">AI Picks</div>
+                  <div className="text-sm text-text-muted mb-1">Eligible Meals</div>
                   <div className="text-2xl font-bold font-mono text-primary">
-                    {recommendations.filter((m) => m.mlRecommended).length}
+                    {recommendationInfo?.totalEligible ?? recommendations.length}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-text-muted mb-1">Avg Confidence</div>
-                  <div className="text-2xl font-bold font-mono text-text-primary">
-                    {recommendations.length > 0
-                      ? Math.round((recommendations.reduce((acc, m) => acc + (m.confidence || 0), 0) / recommendations.length) * 100)
-                      : 0}%
+                  <div className="text-sm text-text-muted mb-1">Ranking</div>
+                  <div className="text-base font-semibold text-text-primary">
+                    {recommendationInfo?.recommendationMode === 'behavioral' ? 'Behavioral model' : 'Crowd ratings'}
                   </div>
                 </div>
               </div>
 
               <div className="bg-primary-muted rounded-lg p-4 text-sm text-text-secondary">
                 <p className="mb-1"><span className="font-medium text-primary">How it works:</span></p>
-                <p>Our AI analyzes your preferences, nutrition goals, and dietary restrictions to find meals you'll love. Rate meals to improve future recommendations!</p>
+                <p>Profile filters select eligible meals. The current ranking uses a five-rating prior and verified crowd feedback; its score is not a personal match probability.</p>
               </div>
             </div>
           </section>

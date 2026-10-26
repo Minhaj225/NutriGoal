@@ -4,6 +4,7 @@ const Meal = require("../models/Meal");
 const Student = require("../models/Student");
 const { recordMealFeedback } = require('../services/feedback');
 const { buildEligibilityFilter } = require('../services/eligibility');
+const { baselineRank, behavioralRank, validatePredictions } = require('../services/recommendations');
 const axios = require("axios");
 const { authenticateToken, authorizeAdmin, requireStudent } = require("../middleware/auth");
 const { cuisines, categories, diets, email, id, integer, number, query, choice, invalid, keys, meal: validateMeal } = require('../validation');
@@ -173,78 +174,60 @@ const recommend = async (req, res, next) => {
         $or: [{ allergenStatus: { $ne: 'verified' } }, { allergens: { $exists: false } }] });
     }
 
-    // Limit to top 100 candidates based on general popularity and rating to save memory and ML processing
-    const meals = await Meal.find(mealFilter)
-      .sort({ averageRating: -1, popularity: -1 })
-      .limit(100);
+    // shortcut: score at most 500 candidates, use measured retrieval when catalogues routinely exceed this bound.
+    const meals = await Meal.find(mealFilter).limit(501);
+    if (meals.length > 500) {
+      return res.status(422).json({ error: 'narrow_preferences',
+        message: 'More than 500 meals match. Narrow your profile or meal type.' });
+    }
+    const totalEligible = meals.length;
+    const requestedMode = process.env.RECOMMENDER_MODE || 'baseline';
+    const degradedReason = requestedMode === 'behavioral' ? 'not_approved' : null;
     
     if (meals.length === 0) {
       return res.json({
         success: true,
         message: student.allergies?.length ? 'No verified meals match your allergy and profile filters' : 'No meals found matching your preferences',
         recommendations: [],
-        excludedUnknownAllergenCount
+        excludedUnknownAllergenCount,
+        recommendationMode: 'baseline', degradedReason, modelVersion: null,
+        totalEligible: 0, totalMealsEvaluated: 0, mlApiUsed: false,
       });
     }
 
-    // Prepare meals for ML prediction
-    const mealPredictions = meals.map(meal => ({
-      meal_name: meal.mealName,
-      calories: meal.calories,
-      protein: meal.protein,
-      cuisine: meal.cuisine,
-      category: meal.category,
-      diet: meal.dietaryPreference
-    }));
-
-    // Get recommendations from ML API
-    let recommendations = [];
-    try {
-      const mlResponse = await axios.post(`${ML_API_URL}/predict_batch`, {
-        meals: mealPredictions
-      }, {
-        timeout: 10000
-      });
-
-      if (mlResponse.data.success !== false && mlResponse.data.results) {
-        // Filter recommended meals
-        const recommendedMeals = [];
-        
-        mlResponse.data.results.forEach((result, index) => {
-          if (result.recommended && result.confidence > 0.5) {
-            recommendedMeals.push({
-              ...meals[index].toObject(),
-              confidence: result.confidence,
-              mlRecommended: true
-            });
-          }
-        });
-
-        // Sort by confidence and rating
-        recommendations = recommendedMeals
-          .sort((a, b) => (b.confidence * 0.7 + b.averageRating * 0.3) - (a.confidence * 0.7 + a.averageRating * 0.3))
-          .slice(0, limit);
+    let recommendations = baselineRank(meals, limit);
+    let recommendationMode = 'baseline';
+    let reason = degradedReason;
+    let modelVersion = null;
+    if (requestedMode === 'behavioral' && process.env.BEHAVIORAL_MODEL_APPROVED === 'true') {
+      try {
+        const mlResponse = await axios.post(`${ML_API_URL}/predict_batch`, {
+          meals: meals.map(meal => ({ meal_id: String(meal._id), meal_name: meal.mealName,
+            calories: meal.calories, protein: meal.protein, cuisine: meal.cuisine,
+            category: meal.category, diet: meal.dietaryPreference })),
+        }, { timeout: 2500, maxContentLength: 1_000_000, maxBodyLength: 1_000_000 });
+        const predictions = validatePredictions(mlResponse.data, meals);
+        const ranked = behavioralRank(meals, predictions, limit);
+        if (ranked.length) {
+          recommendations = ranked;
+          recommendationMode = 'behavioral';
+          reason = null;
+          modelVersion = mlResponse.data.modelVersion;
+        } else reason = 'no_positive_predictions';
+      } catch (error) {
+        reason = error.code === 'ECONNABORTED' || error.response || error.request
+          ? 'model_unavailable' : 'invalid_model_response';
       }
-    } catch (mlError) {
-      console.error("ML API Error:", mlError.message);
-      // Fallback: return meals sorted by rating and popularity
-      recommendations = meals
-        .sort((a, b) => (b.averageRating * 0.6 + b.popularity * 0.4) - (a.averageRating * 0.6 + a.popularity * 0.4))
-        .slice(0, limit)
-        .map(meal => ({
-          ...meal.toObject(),
-          confidence: 0.5,
-          mlRecommended: false,
-          fallbackRecommendation: true
-        }));
     }
 
     res.json({
       success: true,
       recommendations,
       studentPreferences: student.preferences,
+      totalEligible,
       totalMealsEvaluated: meals.length,
-      mlApiUsed: recommendations.length > 0 ? recommendations[0].mlRecommended : false,
+      recommendationMode, degradedReason: reason, modelVersion,
+      mlApiUsed: recommendationMode === 'behavioral',
       excludedUnknownAllergenCount
     });
 
