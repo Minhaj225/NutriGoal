@@ -1,6 +1,7 @@
 const cuisines = ['North Indian', 'South Indian', 'Street Food', 'General'];
 const categories = ['Main Dish', 'Breakfast', 'Snack', 'Side Dish', 'Staple'];
 const diets = ['Vegetarian', 'Non-Vegetarian'];
+const { uncertainAllergen } = require('./services/allergens');
 
 function invalid(message = 'Invalid request') {
   const error = new Error(message);
@@ -100,7 +101,7 @@ function profile(body, ownEmail, creating) {
 }
 
 function meal(body, creating) {
-  const allowed = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl', 'isActive', 'nutritionScore'];
+  const allowed = ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein', 'carbohydrates', 'fats', 'servingSize', 'allergens', 'ingredients', 'description', 'imageUrl', 'isActive', 'nutritionScore', 'allergenStatus'];
   keys(body, allowed);
   const result = {};
   for (const [key, value] of Object.entries(body)) {
@@ -113,6 +114,7 @@ function meal(body, creating) {
     else if (key === 'cuisine') result[key] = choice(value, cuisines);
     else if (key === 'category') result[key] = choice(value, categories);
     else if (key === 'dietaryPreference') result[key] = choice(value, diets);
+    else if (key === 'allergenStatus') result[key] = choice(value, ['unknown', 'verified']);
     else if (['allergens', 'ingredients'].includes(key)) result[key] = list(value);
     else if (key === 'isActive') {
       if (typeof value !== 'boolean') invalid('Invalid isActive');
@@ -124,6 +126,13 @@ function meal(body, creating) {
   }
   if (creating && ['mealName', 'cuisine', 'category', 'dietaryPreference', 'calories', 'protein'].some(key => result[key] === undefined)) {
     invalid('Missing meal fields');
+  }
+  if (result.allergens && result.allergenStatus === undefined) result.allergenStatus = 'unknown';
+  if (result.allergenStatus === 'verified') {
+    if (!Array.isArray(result.allergens) || result.allergens.some(uncertainAllergen) ||
+        !/^(?:\d+(?:\.\d+)?\s*(?:g|ml)|\d+(?:\.\d+)?\s*(?:bowl|cup|piece)s?\s*\(\d+(?:\.\d+)?\s*(?:g|ml)\))$/i.test(result.servingSize || '')) {
+      invalid('Verified allergen metadata requires a complete allergen list and measured serving size');
+    }
   }
   return result;
 }

@@ -13,6 +13,7 @@ const Recommendations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [excludedUnknownAllergenCount, setExcludedUnknownAllergenCount] = useState(0);
   const [student, setStudent] = useState(null);
   const [filters, setFilters] = useState({
     limit: 10,
@@ -48,17 +49,17 @@ const Recommendations = () => {
     setLoading(true);
     setError("");
     setSuccess("");
+    setExcludedUnknownAllergenCount(0);
 
     try {
       const response = await mealAPI.getRecommendations(filters);
 
       if (response.success) {
         setRecommendations(response.recommendations || []);
+        setExcludedUnknownAllergenCount(response.excludedUnknownAllergenCount || 0);
 
         if (response.recommendations.length === 0) {
-          setError(
-            "No recommendations found. Try updating your profile preferences."
-          );
+          setError(response.message || "No meals match your profile filters.");
         }
       } else {
         setError("Failed to get recommendations");
@@ -120,7 +121,7 @@ const Recommendations = () => {
             Personalized Recommendations
           </h1>
           <p className="text-text-secondary max-w-lg">
-            Get AI-powered meal suggestions based on your preferences and nutrition goals.
+            Find meals using your diet, cuisines, meal types, allergies, and per-meal limits.
           </p>
         </div>
 
@@ -209,6 +210,11 @@ const Recommendations = () => {
 
         {/* Error Display */}
         {error && <ErrorMessage message={error} onRetry={fetchRecommendations} />}
+        {excludedUnknownAllergenCount > 0 && (
+          <p role="status" className="bg-warning-muted border border-warning/20 rounded-lg p-4 mb-8 text-sm text-text-secondary">
+            {excludedUnknownAllergenCount} otherwise matching meal{excludedUnknownAllergenCount === 1 ? '' : 's'} excluded because allergen information is unverified.
+          </p>
+        )}
 
         {/* Success Display */}
         {success && (

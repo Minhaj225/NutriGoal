@@ -16,6 +16,7 @@ const AdminMealForm = () => {
     dietaryPreference: "Vegetarian",
     servingSize: "",
     allergens: "",
+    allergenStatus: "unknown",
     ingredients: "",
     description: "",
     imageUrl: "",
@@ -122,6 +123,7 @@ const AdminMealForm = () => {
         dietaryPreference: "Vegetarian",
         servingSize: "",
         allergens: "",
+        allergenStatus: "unknown",
         ingredients: "",
         description: "",
         imageUrl: "",
@@ -413,6 +415,18 @@ const AdminMealForm = () => {
                   placeholder="nuts, dairy, gluten"
                   className={inputClassName}
                 />
+              </div>
+
+              <div>
+                <label htmlFor="allergenStatus" className={labelClassName}>Allergen information</label>
+                <select id="allergenStatus" name="allergenStatus" value={form.allergenStatus}
+                  onChange={handleChange} className={inputClassName}>
+                  <option value="unknown">Not verified</option>
+                  <option value="verified">Verified from a reliable source</option>
+                </select>
+                <p className="text-sm text-text-muted mt-1">
+                  Verify only with a complete allergen list and a measured serving size, such as 200g.
+                </p>
               </div>
 
               <div>

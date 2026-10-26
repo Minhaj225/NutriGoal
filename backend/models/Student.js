@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { normalizeAllergens } = require('../services/allergens');
 
 const studentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -10,7 +11,7 @@ const studentSchema = new mongoose.Schema({
     dietaryPreference: { type: String, enum: ["Vegetarian", "Non-Vegetarian"], default: "Vegetarian" },
     categories: [{ type: String, enum: ["Main Dish", "Breakfast", "Snack", "Side Dish", "Staple"] }]
   },
-  allergies: [{ type: String, maxlength: 80 }],
+  allergies: { type: [{ type: String, maxlength: 80 }], default: [], set: normalizeAllergens },
   nutritionGoals: {
     caloriesPerDay: { type: Number, min: 1000, max: 5000 },
     proteinGramsPerDay: { type: Number, min: 20, max: 200 },

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { normalizeAllergens } = require('../services/allergens');
 
 const mealSchema = new mongoose.Schema({
   mealName: { type: String, required: true },
@@ -22,7 +23,8 @@ const mealSchema = new mongoose.Schema({
     enum: ["Vegetarian", "Non-Vegetarian"]
   },
   servingSize: String,
-  allergens: [String],
+  allergens: { type: [String], default: [], set: normalizeAllergens },
+  allergenStatus: { type: String, enum: ['unknown', 'verified'], default: 'unknown' },
   ingredients: [String],
   description: String,
   imageUrl: String,

@@ -3,6 +3,7 @@ const router = express.Router();
 const Meal = require("../models/Meal");
 const Student = require("../models/Student");
 const { recordMealFeedback } = require('../services/feedback');
+const { buildEligibilityFilter } = require('../services/eligibility');
 const axios = require("axios");
 const { authenticateToken, authorizeAdmin, requireStudent } = require("../middleware/auth");
 const { cuisines, categories, diets, email, id, integer, number, query, choice, invalid, keys, meal: validateMeal } = require('../validation');
@@ -135,7 +136,7 @@ router.get("/:id", async (req, res, next) => {
   try {
     const meal = await Meal.findById(id(req.params.id));
     
-    if (!meal) {
+    if (!meal || !meal.isActive) {
       return res.status(404).json({ error: "Meal not found" });
     }
     
@@ -164,32 +165,12 @@ const recommend = async (req, res, next) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    // Get meals based on student preferences
-    let mealFilter = { isActive: true };
-    
-    // Filter by meal type if specified
-    if (mealType) {
-      mealFilter.category = mealType;
-    }
-    
-    // Filter by dietary preference
-    if (student.preferences?.dietaryPreference) {
-      mealFilter.dietaryPreference = student.preferences.dietaryPreference;
-    }
-    
-    // Filter by preferred cuisines
-    if (student.preferences?.cuisines && student.preferences.cuisines.length > 0) {
-      mealFilter.cuisine = { $in: student.preferences.cuisines };
-    }
-    
-    // Filter by calorie goals
-    if (student.nutritionGoals?.maxCaloriesPerMeal) {
-      mealFilter.calories = { $lte: student.nutritionGoals.maxCaloriesPerMeal };
-    }
-    
-    // Filter by protein goals
-    if (student.nutritionGoals?.minProteinPerMeal) {
-      mealFilter.protein = { $gte: student.nutritionGoals.minProteinPerMeal };
+    const mealFilter = buildEligibilityFilter(student, { mealType });
+    let excludedUnknownAllergenCount = 0;
+    if (student.allergies?.length) {
+      const { allergenStatus, allergens, ...otherwiseEligible } = mealFilter;
+      excludedUnknownAllergenCount = await Meal.countDocuments({ ...otherwiseEligible,
+        $or: [{ allergenStatus: { $ne: 'verified' } }, { allergens: { $exists: false } }] });
     }
 
     // Limit to top 100 candidates based on general popularity and rating to save memory and ML processing
@@ -200,8 +181,9 @@ const recommend = async (req, res, next) => {
     if (meals.length === 0) {
       return res.json({
         success: true,
-        message: "No meals found matching your preferences",
-        recommendations: []
+        message: student.allergies?.length ? 'No verified meals match your allergy and profile filters' : 'No meals found matching your preferences',
+        recommendations: [],
+        excludedUnknownAllergenCount
       });
     }
 
@@ -262,7 +244,8 @@ const recommend = async (req, res, next) => {
       recommendations,
       studentPreferences: student.preferences,
       totalMealsEvaluated: meals.length,
-      mlApiUsed: recommendations.length > 0 ? recommendations[0].mlRecommended : false
+      mlApiUsed: recommendations.length > 0 ? recommendations[0].mlRecommended : false,
+      excludedUnknownAllergenCount
     });
 
   } catch (err) { next(err); }
@@ -305,6 +288,13 @@ router.post("/:id/rate", authenticateToken, requireStudent, async (req, res, nex
 router.put("/:id", authenticateToken, authorizeAdmin, async (req, res, next) => {
   try {
     const updateData = validateMeal(req.body, false);
+    if (updateData.servingSize !== undefined && updateData.allergenStatus === undefined) {
+      const current = await Meal.findById(id(req.params.id));
+      if (current?.allergenStatus === 'verified') {
+        validateMeal({ allergenStatus: 'verified', allergens: current.allergens,
+          servingSize: updateData.servingSize }, false);
+      }
+    }
 
     const meal = await Meal.findByIdAndUpdate(
       id(req.params.id),
