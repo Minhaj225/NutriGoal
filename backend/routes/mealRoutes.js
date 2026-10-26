@@ -274,7 +274,9 @@ router.get('/recommend/:email', authenticateToken, (req, res, next) => {
 });
 
 // Rate a meal
-router.post("/:id/rate", authenticateToken, requireStudent, async (req, res, next) => {
+router.post("/:id/rate", authenticateToken, requireStudent,
+  (req, res, next) => req.app.locals.rateLimits.feedback(req, res, next),
+  async (req, res, next) => {
   try {
     keys(req.body, ['rating']);
     const { rating } = req.body;

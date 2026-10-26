@@ -2,9 +2,7 @@ const express = require("express");
 const { randomUUID } = require('node:crypto');
 const mongoose = require("mongoose");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const { Redis } = require("@upstash/redis");
-const RedisStore = require("rate-limit-redis");
+const { createRateLimiters } = require('./rateLimiter');
 require("dotenv").config();
 
 const studentRoutes = require("./routes/studentRoutes");
@@ -13,6 +11,14 @@ const authRoutes = require("./routes/authRoutes");
 const { authenticateToken, authorizeAdmin } = require("./middleware/auth");
 
 const app = express();
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 2) {
+  throw new Error('TRUST_PROXY_HOPS must be 0, 1, or 2');
+}
+app.set('trust proxy', proxyHops);
+const rateLimits = createRateLimiters();
+app.locals.rateLimits = rateLimits;
+if (rateLimits.mode === 'unavailable') console.error('Shared rate limiter is not configured');
 
 // Middleware
 app.use(cors({
@@ -24,45 +30,15 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+});
+app.use(rateLimits.gate, rateLimits.global);
+app.use('/api/auth/login', rateLimits.login);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
-
-// Global Rate Limiting
-
-// Redis client for rate limiting - using Upstash Redis for Vercel compatibility
-let redisStore;
-try {
-  const redisClient = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-  redisStore = new RedisStore({
-    sendCommand: (command, ...args) => redisClient.call(command, ...args),
-    prefix: "rl:",
-  });
-} catch (err) {
-  console.warn(
-    "Upstash Redis unavailable, falling back to memory store:",
-    err.message,
-  );
-}
-
-const limiterOptions = {
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: {
-    error: "Too many requests, please try again after 15 minutes."
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-};
-
-// Use Redis store if available, otherwise fall back to memory store
-if (redisStore) {
-  limiterOptions.store = redisStore;
-}
-const limiter = rateLimit(limiterOptions);
-app.use(limiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -91,16 +67,6 @@ app.get("/", (req, res) => {
       "/api/students": "Student management",
       "/api/meals": "Meal management"
     }
-  });
-});
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-    dbStatus: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
   });
 });
 

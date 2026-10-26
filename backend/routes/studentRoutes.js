@@ -6,6 +6,7 @@ const { authenticateToken, authorizeAdmin, requireStudent } = require('../middle
 const { email, emailPattern, id, integer, invalid, keys, profile, query } = require('../validation');
 
 const router = express.Router();
+const limitFeedback = (req, res, next) => req.app.locals.rateLimits.feedback(req, res, next);
 router.use(authenticateToken);
 router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
@@ -59,7 +60,8 @@ async function recordFeedback(req, res, next, target) {
 
 router.get('/me', requireStudent, (req, res, next) => getProfile(req, res, next, req.user.email));
 router.post('/me', requireStudent, (req, res, next) => saveProfile(req, res, next, req.user.email));
-router.post('/me/feedback', requireStudent, (req, res, next) => recordFeedback(req, res, next, req.user.email));
+router.post('/me/feedback', requireStudent, limitFeedback,
+  (req, res, next) => recordFeedback(req, res, next, req.user.email));
 router.get('/me/feedback', requireStudent, async (req, res, next) => {
   try {
     const options = query(req, {
@@ -105,7 +107,7 @@ router.post('/', async (req, res, next) => {
 router.get('/:email', (req, res, next) => {
   try { return getProfile(req, res, next, requestedEmail(req)); } catch (err) { next(err); }
 });
-router.post('/:email/feedback', (req, res, next) => {
+router.post('/:email/feedback', limitFeedback, (req, res, next) => {
   try { return recordFeedback(req, res, next, requestedEmail(req)); } catch (err) { next(err); }
 });
 router.delete('/:email', authorizeAdmin, async (req, res, next) => {
