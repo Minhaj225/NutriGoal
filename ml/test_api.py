@@ -22,8 +22,8 @@ def test_api():
     response = requests.get(f"{API_BASE_URL}/features")
     print(f"Status: {response.status_code}")
     features_data = response.json()
-    print(f"Feature count: {features_data['feature_count']}")
-    print(f"Model accuracy: {features_data['model_accuracy']}")
+    print(f"Feature count: {features_data.get('feature_count', 0)}")
+    print(f"Model status: {features_data.get('modelStatus', 'ready' if response.ok else 'unavailable')}")
     
     # Test 3: Single Prediction
     print("\n3. Testing Single Meal Prediction...")

@@ -1,132 +1,64 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
+import json
+import hashlib
+import re
 import numpy as np
 import pandas as pd
 import traceback
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+import sklearn
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
-DATASET_PATH = os.path.join(BASE_DIR, "indian_food_nutrition_dataset.csv")
-
 model = None
 feature_columns = []
-model_accuracy = 0.0
+model_version = None
+model_status = 'unavailable'
 
-def load_or_create_model():
-    """Load existing model or create new one if missing"""
-    global model, feature_columns, model_accuracy
-    
+
+def load_model_artifact(path=MODEL_PATH):
+    """Load only a locally packaged, approved behavioral artifact."""
+    global model, feature_columns, model_version, model_status
+    model, feature_columns, model_version, model_status = None, [], None, 'unavailable'
     try:
-        if os.path.exists(MODEL_PATH):
-            with open(MODEL_PATH, 'rb') as f:
-                model_data = pickle.load(f)
-            model = model_data['model']
-            feature_columns = model_data['features']
-            model_accuracy = model_data['accuracy']
-            print("Loaded existing model successfully")
-        else:
-            print("Model not found, creating new model from dataset...")
-            create_model_from_dataset()
-            
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        print("Creating new model from dataset...")
-        try:
-            create_model_from_dataset()
-        except Exception as e2:
-            print(f"Error creating model: {e2}")
-            print("Using dummy model...")
-            create_dummy_model()
+        with open(os.fspath(path).removesuffix('.pkl') + '.manifest.json', encoding='utf-8') as stream:
+            manifest = json.load(stream)
+        if (manifest.get('approved') is not True or
+                manifest.get('labelDefinition') != 'behavioral_feedback_v1' or
+                manifest.get('schemaVersion') != 'behavioral-v1' or
+                manifest.get('sklearnVersion') != sklearn.__version__ or
+                not isinstance(manifest.get('modelVersion'), str) or
+                not manifest['modelVersion'] or
+                not isinstance(manifest.get('splitPolicy'), str) or
+                not manifest['splitPolicy'] or
+                not re.fullmatch(r'[0-9a-f]{64}', manifest.get('artifactSha256', '')) or
+                not re.fullmatch(r'[0-9a-f]{64}', manifest.get('datasetSha256', ''))):
+            return False
+        with open(path, 'rb') as stream:
+            content = stream.read()
+        if hashlib.sha256(content).hexdigest() != manifest['artifactSha256']:
+            return False
+        artifact = pickle.loads(content)
+        candidate = artifact['model']
+        columns = artifact['features']
+        if (artifact.get('schemaVersion') != manifest['schemaVersion'] or
+                not isinstance(columns, list) or len(columns) != len(set(columns)) or
+                columns != manifest.get('featureColumns') or
+                not {'calories', 'protein'}.issubset(columns) or
+                not hasattr(candidate, 'predict') or not hasattr(candidate, 'predict_proba') or
+                list(candidate.classes_) != [0, 1]):
+            return False
+        model, feature_columns = candidate, columns
+        model_version, model_status = manifest['modelVersion'], 'ready'
+        return True
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, pickle.UnpicklingError):
+        return False
 
-def create_model_from_dataset():
-    """Create and train model from the dataset"""
-    global model, feature_columns, model_accuracy
-    
-    try:
-        if not os.path.exists(DATASET_PATH):
-            print("Dataset not found, creating dummy model...")
-            create_dummy_model()
-            return
-            
-        df = pd.read_csv(DATASET_PATH)
-        print(f"Loaded dataset with {len(df)} rows")
-        
-        df_clean = df.dropna()
-        
-        df_features = pd.DataFrame()
-        df_features['calories'] = df_clean['Calories (kcal)']
-        df_features['protein'] = df_clean['Protein (g)']
-        
-        df_features['cuisine'] = df_clean['Category'].apply(lambda x: 'North Indian' if x in ['Main Dish', 'Lentil Dish'] else 'General')
-        df_features['category'] = df_clean['Category']
-        df_features['diet'] = df_clean['Dietary Preference']
-        
-        df_features['target'] = (df_features['protein'] > df_features['protein'].median()).astype(int)
-        
-        categorical_cols = ['cuisine', 'category', 'diet']
-        df_encoded = pd.get_dummies(df_features, columns=categorical_cols, prefix=categorical_cols)
-        
-        X = df_encoded.drop('target', axis=1)
-        y = df_encoded['target']
-        feature_columns = X.columns.tolist()
-        
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
-        model.fit(X_train, y_train)
-        
-        model_accuracy = model.score(X_test, y_test)
-        
-        print(f"Model trained successfully with accuracy: {model_accuracy:.3f}")
-        print(f"Features: {len(feature_columns)}")
-        
-        # Save model for future use
-        model_data = {
-            'model': model,
-            'features': feature_columns,
-            'accuracy': model_accuracy
-        }
-        with open(MODEL_PATH, 'wb') as f:
-            pickle.dump(model_data, f)
-        print("Model saved successfully")
-        
-    except Exception as e:
-        print(f"Error creating model from dataset: {e}")
-        create_dummy_model()
 
-def create_dummy_model():
-    """Create a dummy model for testing purposes"""
-    global model, feature_columns, model_accuracy
-    
-    print("Creating dummy model for testing...")
-    
-    feature_columns = [
-        'calories', 'protein',
-        'cuisine_North Indian', 'cuisine_South Indian', 'cuisine_Street Food', 'cuisine_General',
-        'category_Main Dish', 'category_Breakfast', 'category_Snack', 'category_Side Dish', 'category_Staple',
-        'diet_Vegetarian', 'diet_Non-Vegetarian'
-    ]
-    
-    np.random.seed(42)
-    X_dummy = np.random.rand(100, len(feature_columns))
-    y_dummy = np.random.randint(0, 2, 100)
-    
-    model = RandomForestClassifier(n_estimators=10, random_state=42)
-    model.fit(X_dummy, y_dummy)
-    model_accuracy = 0.75
-    
-    print("Dummy model created successfully")
-
-def ensure_model_loaded():
-    global model
-    if model is None:
-        load_or_create_model()
+# Import runs once per worker; HTTP handlers never train or load a model.
+load_model_artifact()
 
 
 app = Flask(__name__)
@@ -134,37 +66,17 @@ CORS(app)
 
 @app.route('/')
 def index():
-    try:
-        ensure_model_loaded()
-        return jsonify({
-            "message": "Enhanced Meal Recommendation ML API is running.",
-            "model_accuracy": f"{model_accuracy:.3f}" if model_accuracy else "N/A",
-            "feature_count": len(feature_columns) if feature_columns else 0,
-            "model_loaded": model is not None,
-            "endpoints": {
-                "/predict": "POST - Get meal recommendation",
-                "/predict_batch": "POST - Get recommendations for multiple meals",
-                "/features": "GET - Get model feature information",
-                "/health": "GET - Health check"
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            "message": "API is running but model may not be loaded",
-            "error": str(e),
-            "endpoints": {
-                "/health": "GET - Health check"
-            }
-        }), 200
+    return jsonify({"message": "Meal model API is running", "modelStatus": model_status,
+                    "modelVersion": model_version})
 
 @app.route('/features', methods=['GET'])
 def get_features():
-    ensure_model_loaded()
-    """Get information about model features"""
+    if model is None:
+        return jsonify({"error": "model_unavailable"}), 503
     return jsonify({
         "features": feature_columns,
         "feature_count": len(feature_columns),
-        "model_accuracy": model_accuracy
+        "modelVersion": model_version,
     })
 
 @app.route('/predict', methods=['POST'])
@@ -181,8 +93,9 @@ def predict():
         "diet": "Vegetarian"
     }
     """
+    if model is None:
+        return jsonify({"error": "model_unavailable"}), 503
     try:
-        ensure_model_loaded()
         data = request.get_json()
         
         required_fields = ['calories', 'protein', 'cuisine', 'category', 'diet']
@@ -226,8 +139,9 @@ def predict_batch():
         ]
     }
     """
+    if model is None:
+        return jsonify({"error": "model_unavailable"}), 503
     try:
-        ensure_model_loaded()
         data = request.get_json()
         meals = data.get('meals', [])
 
@@ -311,29 +225,19 @@ def create_feature_vector(meal_data):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    try:
-        ensure_model_loaded()
-        return jsonify({
-            "status": "healthy",
-            "model_loaded": model is not None,
-            "feature_count": len(feature_columns) if feature_columns else 0,
-            "model_accuracy": model_accuracy if model_accuracy else 0,
-            "timestamp": str(pd.Timestamp.now())
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "error": str(e),
-            "model_loaded": False
-        }), 500
+    return jsonify({"status": "healthy" if model is not None else "degraded",
+                    "modelStatus": model_status, "modelVersion": model_version,
+                    "timestamp": str(pd.Timestamp.now())}), 200
+
+
+@app.route('/ready', methods=['GET'])
+def ready_check():
+    return jsonify({"modelStatus": model_status, "modelVersion": model_version}), 200 if model is not None else 503
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting Enhanced Meal Recommendation API on port {port}...")
-    if model is not None:
-        print(f"Model accuracy: {model_accuracy:.3f}")
-        print(f"Features: {len(feature_columns)}")
+    print(f"Model status: {model_status}")
     print("Available endpoints:")
     print("  GET  /         - API information")
     print("  GET  /features - Model feature information") 
