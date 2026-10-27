@@ -4,8 +4,8 @@
   "description": "Enhanced backend API for AI-powered meal recommendations",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node --watch app.js",
+    "start": "node server.js",
+    "dev": "node --watch server.js",
     "vercel-build": "echo 'Backend build complete'",
     "test": "jest --runInBand",
     "seed": "node scripts/seedMeals.js",

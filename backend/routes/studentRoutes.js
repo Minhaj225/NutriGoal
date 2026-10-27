@@ -20,7 +20,7 @@ function requestedEmail(req, supplied = req.params.email) {
   return target;
 }
 
-async function findProfile(req, target) {
+function findProfile(req, target) {
   return req.user.role === 'student'
     ? Student.findOne({ userId: req.user.id })
     : Student.findOne({ email: emailPattern(target) });
@@ -40,7 +40,9 @@ async function saveProfile(req, res, next, target) {
 
 async function getProfile(req, res, next, target) {
   try {
-    const student = await findProfile(req, target);
+    const student = await findProfile(req, target)
+      .select('name email userId preferences nutritionGoals allergies activityLevel createdAt updatedAt')
+      .maxTimeMS(5000).lean();
     if (!student) return res.status(404).json({ error: 'Student not found' });
     res.json({ success: true, student });
   } catch (err) { next(err); }
@@ -71,7 +73,8 @@ router.get('/me/feedback', requireStudent, async (req, res, next) => {
     const page = options.page || 1;
     const limit = options.limit || 20;
     const feedback = await MealFeedback.find({ studentId: req.user.id })
-      .sort({ feedbackAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean();
+      .sort({ feedbackAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit)
+      .maxTimeMS(5000).lean();
     res.json({ success: true, page, feedback });
   } catch (err) { next(err); }
 });
@@ -90,8 +93,10 @@ router.get('/', authorizeAdmin, async (req, res, next) => {
     });
     const page = options.page || 1;
     const limit = options.limit || 10;
-    const total = await Student.countDocuments();
-    const students = await Student.find().select('-mealHistory').sort({ _id: 1 }).skip((page - 1) * limit).limit(limit);
+    const total = await Student.countDocuments().maxTimeMS(5000);
+    const students = await Student.find()
+      .select('name email preferences nutritionGoals allergies activityLevel userId createdAt updatedAt')
+      .sort({ _id: 1 }).skip((page - 1) * limit).limit(limit).maxTimeMS(5000).lean();
     res.json({ success: true, count: students.length, total, totalPages: Math.ceil(total / limit), currentPage: page, students });
   } catch (err) { next(err); }
 });

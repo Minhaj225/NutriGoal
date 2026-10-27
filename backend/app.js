@@ -1,6 +1,7 @@
 const express = require("express");
 const { randomUUID } = require('node:crypto');
 const mongoose = require("mongoose");
+const { connectDb } = require('./db');
 const cors = require("cors");
 const { createRateLimiters } = require('./rateLimiter');
 require("dotenv").config();
@@ -31,12 +32,26 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+  res.json({ status: 'alive' });
+});
+app.get('/api/ready', async (req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  const limiterReady = await rateLimits.ready().then(() => true, () => false);
+  const ready = connected && limiterReady;
+  const modelRequested = process.env.RECOMMENDER_MODE === 'behavioral';
+  const modelReady = modelRequested && process.env.BEHAVIORAL_MODEL_APPROVED === 'true' &&
+    !!(process.env.ML_API_TOKEN && process.env.ML_MODEL_VERSION);
+  res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'unavailable',
+    components: { database: connected ? 'ready' : 'unavailable',
+      rateLimiter: limiterReady ? rateLimits.mode : 'unavailable',
+      recommender: modelReady ? 'behavioral_configured' : modelRequested ? 'baseline_model_unavailable' : 'baseline' } });
 });
 app.use(rateLimits.gate, rateLimits.global);
 app.use('/api/auth/login', rateLimits.login);
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'test' || mongoose.connection.readyState === 1) return next();
+  connectDb().then(() => next(), () => res.status(503).json({ error: 'Database unavailable' }));
+});
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
@@ -81,10 +96,8 @@ app.get("/api", (req, res) => {
       "/api/students": "Student management endpoints",
       "/api/meals": "Meal management and recommendation endpoints"
     },
-    mlIntegration: {
-      enabled: true,
-      apiUrl: process.env.ML_API_URL || "http://localhost:5000"
-    }
+    recommendationMode: process.env.RECOMMENDER_MODE === 'behavioral' &&
+      process.env.BEHAVIORAL_MODEL_APPROVED === 'true' ? 'behavioral_configured' : 'baseline'
   });
 });
 
@@ -133,41 +146,5 @@ app.use((err, req, res, next) => {
     error: "Internal Server Error"
   });
 });
-
-// DB Connection
-if (process.env.NODE_ENV !== 'test') {
-  mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  })
-  .then(() => {
-    console.log("MongoDB connected successfully");
-    console.log(`Database: ${mongoose.connection.db.databaseName}`);
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-    process.exit(1);
-  });
-}
-
-// MongoDB connection event handlers
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB reconnected');
-});
-
-const PORT = process.env.PORT || 5001;
-
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`ML API URL: ${process.env.ML_API_URL || 'http://localhost:5000'}`);
-    console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  });
-}
 
 module.exports = app;

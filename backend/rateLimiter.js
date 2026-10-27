@@ -30,6 +30,7 @@ function createRateLimiters({ mode = process.env.RATE_LIMIT_MODE,
   if (!memory && ((mode && mode !== 'redis') ||
       (!mode && env !== 'production') || !client && (!url || !token))) {
     return { gate: unavailable, global: unavailable, login: unavailable, feedback: unavailable,
+      ready: () => Promise.reject(new Error('Shared rate limiter is not configured')),
       mode: 'unavailable' };
   }
   const redis = memory ? null : client || new Redis({ url, token });
@@ -68,6 +69,7 @@ function createRateLimiters({ mode = process.env.RATE_LIMIT_MODE,
   const initialization = Promise.all(ready);
   return {
     mode: memory ? 'memory' : 'redis', global, login, feedback,
+    ready: () => initialization,
     gate: (req, res, next) => initialization.then(() => next(), () => unavailable(req, res)),
   };
 }

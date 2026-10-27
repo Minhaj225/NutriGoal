@@ -183,7 +183,7 @@ export const systemAPI = {
   },
   // Health check
   healthCheck: async () => {
-    const response = await api.get('/health');
+    const response = await api.get('/ready');
     return response.data;
   },
 

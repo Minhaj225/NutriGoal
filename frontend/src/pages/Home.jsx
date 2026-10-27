@@ -20,7 +20,7 @@ const Home = () => {
         setLoading(true);
 
         const [infoRes, healthRes, statsRes, mealsRes] = await Promise.all([
-          systemAPI.getApiInfo().catch(() => ({ mlIntegration: { enabled: false } })),
+          systemAPI.getApiInfo().catch(() => ({ recommendationMode: 'unavailable' })),
           systemAPI.healthCheck().catch(() => ({ status: "error" })),
           mealAPI.getStats().catch(() => ({ stats: null })),
           mealAPI.getMeals({ limit: 3, sortBy: 'popularity' }).catch(() => ({ meals: [] })),
@@ -29,7 +29,7 @@ const Home = () => {
         if (statsRes.stats) {
           setStats({
             ...statsRes.stats,
-            healthySystem: healthRes.status === "healthy",
+            healthySystem: healthRes.status === "ready",
           });
         }
 
@@ -159,8 +159,10 @@ const Home = () => {
               </div>
 
               <div className="bg-surface rounded-2xl p-6 border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div className="text-3xl font-bold text-primary font-mono mb-1">{stats.averageRating.toFixed(1)}</div>
-                <div className="text-text-muted text-sm">Avg Rating</div>
+                <div className="text-3xl font-bold text-primary font-mono mb-1">
+                  {stats.averageRating == null ? '—' : stats.averageRating.toFixed(1)}
+                </div>
+                <div className="text-text-muted text-sm">Community Rating ({stats.ratingCount || 0})</div>
               </div>
 
               <div className="bg-surface rounded-2xl p-6 border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -168,7 +170,8 @@ const Home = () => {
                   {stats.healthySystem ? "Online ✓" : "Issues ✕"}
                 </div>
                 <div className="text-text-muted text-sm">
-                  {apiInfo?.mlIntegration?.enabled ? "ML Connected" : "ML Offline"}
+                  {apiInfo?.recommendationMode === 'behavioral_configured' ? 'Behavioral mode configured' :
+                    apiInfo?.recommendationMode === 'baseline' ? 'Baseline recommendations' : 'Recommendation status unavailable'}
                 </div>
               </div>
             </div>

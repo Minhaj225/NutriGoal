@@ -12,10 +12,7 @@ const { cuisines, categories, diets, email, id, integer, number, query, choice, 
 
 const ML_API_URL = process.env.ML_API_URL || "http://localhost:5000";
 
-// Simple in-memory cache for stats
-let cachedStats = null;
-let lastStatsCacheTime = 0;
-const STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const publicFields = 'mealName cuisine category dietaryPreference calories protein carbohydrates fats servingSize allergens allergenStatus ingredients description imageUrl isActive popularity averageRating totalRatings';
 
 router.get('/ml/features', authenticateToken, authorizeAdmin, async (_req, res) => {
   if (!process.env.ML_API_TOKEN) return res.status(503).json({ error: 'model_unavailable' });
@@ -36,11 +33,6 @@ router.get('/ml/features', authenticateToken, authorizeAdmin, async (_req, res) 
 // Get meal statistics
 router.get("/stats", async (req, res, next) => {
   try {
-    const now = Date.now();
-    if (cachedStats && (now - lastStatsCacheTime < STATS_CACHE_TTL)) {
-      return res.json({ success: true, stats: cachedStats });
-    }
-
     const stats = await Meal.aggregate([
       { $match: { isActive: true } },
       {
@@ -48,34 +40,37 @@ router.get("/stats", async (req, res, next) => {
           total: [{ $count: "count" }],
           cuisines: [{ $group: { _id: "$cuisine" } }],
           categories: [{ $group: { _id: "$category" } }],
-          avgRating: [{ $group: { _id: null, avg: { $avg: "$averageRating" } } }],
+          ratings: [{ $group: { _id: null,
+            sum: { $sum: { $cond: [{ $eq: ['$ratingSummaryVersion', 2] }, '$ratingSum', 0] } },
+            count: { $sum: { $cond: [{ $eq: ['$ratingSummaryVersion', 2] }, '$totalRatings', 0] } } } }],
           topCuisine: [
             { $group: { _id: "$cuisine", count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
+            { $sort: { count: -1, _id: 1 } },
             { $limit: 1 }
           ],
         },
       },
-    ]);
+    ]).option({ maxTimeMS: 5000 });
 
     const total = stats[0].total[0]?.count || 0;
     const cuisineCount = stats[0].cuisines.length;
     const categoryCount = stats[0].categories.length;
-    const averageRating = stats[0].avgRating[0]?.avg || 0;
+    const ratingCount = stats[0].ratings[0]?.count || 0;
+    const averageRating = ratingCount ? stats[0].ratings[0].sum / ratingCount : null;
     const topCuisine = stats[0].topCuisine[0]?._id || "N/A";
 
-    cachedStats = {
+    const currentStats = {
       totalMeals: total,
       cuisineCount,
       categoryCount,
       averageRating,
+      ratingCount,
       topCuisine,
     };
-    lastStatsCacheTime = now;
 
     res.json({
       success: true,
-      stats: cachedStats,
+      stats: currentStats,
     });
   } catch (err) { next(err); }
 });
@@ -125,18 +120,19 @@ router.get("/", async (req, res, next) => {
     const skip = (pageNum - 1) * limitNum;
 
     const sortOptions = {
-      popularity: { popularity: -1, averageRating: -1 },
-      rating: { averageRating: -1 },
-      calories: { calories: 1 },
-      protein: { protein: -1 },
+      popularity: { popularity: -1, averageRating: -1, _id: 1 },
+      rating: { averageRating: -1, _id: 1 },
+      calories: { calories: 1, _id: 1 },
+      protein: { protein: -1, _id: 1 },
     };
     const sort = sortOptions[sortBy] || sortOptions.popularity;
 
-    const total = await Meal.countDocuments(filter);
+    const total = await Meal.countDocuments(filter).maxTimeMS(5000);
     const meals = await Meal.find(filter)
+      .select(publicFields)
       .sort(sort)
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum).maxTimeMS(5000).lean();
     
     res.json({
       success: true,
@@ -152,7 +148,8 @@ router.get("/", async (req, res, next) => {
 // Get meal by ID
 router.get("/:id", async (req, res, next) => {
   try {
-    const meal = await Meal.findById(id(req.params.id));
+    const meal = await Meal.findById(id(req.params.id))
+      .select(publicFields).maxTimeMS(5000).lean();
     
     if (!meal || !meal.isActive) {
       return res.status(404).json({ error: "Meal not found" });
@@ -192,7 +189,7 @@ const recommend = async (req, res, next) => {
     }
 
     // shortcut: score at most 500 candidates, use measured retrieval when catalogues routinely exceed this bound.
-    const meals = await Meal.find(mealFilter).limit(501);
+    const meals = await Meal.find(mealFilter).limit(501).maxTimeMS(5000);
     if (meals.length > 500) {
       return res.status(422).json({ error: 'narrow_preferences',
         message: 'More than 500 meals match. Narrow your profile or meal type.' });
