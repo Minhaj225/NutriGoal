@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   const [isRendered, setIsRendered] = useState(false);
@@ -12,6 +13,15 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   const pendingRef = useRef(pending);
   closeRef.current = onClose;
   pendingRef.current = pending;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const app = document.getElementById('root');
+    const previous = app.inert;
+    previousFocusRef.current = document.activeElement;
+    app.inert = true;
+    return () => { app.inert = previous; };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -34,9 +44,8 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      previousFocusRef.current = document.activeElement;
-      const focusTimer = requestAnimationFrame(() => cancelBtnRef.current?.focus());
+    if (isOpen && isRendered) {
+      cancelBtnRef.current?.focus();
 
       const handleKeyDown = (e) => {
         if (e.key === 'Escape' && !pendingRef.current) {
@@ -65,14 +74,13 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
       document.addEventListener('keydown', handleKeyDown);
 
       return () => {
-        cancelAnimationFrame(focusTimer);
         document.removeEventListener('keydown', handleKeyDown);
         if (previousFocusRef.current) {
           previousFocusRef.current.focus();
         }
       };
     }
-  }, [isOpen]);
+  }, [isOpen, isRendered]);
 
   const handleConfirm = async () => {
     if (pending) return;
@@ -90,8 +98,9 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
 
   if (!isRendered) return null;
 
-  return (
+  return createPortal(
     <div
+      inert={!isOpen}
       className={`fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 transition-opacity duration-200 ease-in-out motion-reduce:transition-none ${
         isAnimating ? 'opacity-100' : 'opacity-0'
       }`}
@@ -135,7 +144,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 };
 

@@ -36,6 +36,8 @@ const TextType = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(!startOnVisible);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const cursorRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -56,6 +58,13 @@ const TextType = ({
   };
 
   useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
     if (!startOnVisible || !containerRef.current) return;
 
     const observer = new IntersectionObserver(
@@ -74,20 +83,21 @@ const TextType = ({
   }, [startOnVisible]);
 
   useEffect(() => {
-    if (showCursor && cursorRef.current) {
+    if (showCursor && !reducedMotion && cursorRef.current) {
       gsap.set(cursorRef.current, { opacity: 1 });
-      gsap.to(cursorRef.current, {
+      const tween = gsap.to(cursorRef.current, {
         opacity: 0,
         duration: cursorBlinkDuration,
         repeat: -1,
         yoyo: true,
         ease: "power2.inOut",
       });
+      return () => tween.kill();
     }
-  }, [showCursor, cursorBlinkDuration]);
+  }, [showCursor, cursorBlinkDuration, reducedMotion]);
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || reducedMotion) return;
 
     let timeout;
 
@@ -110,7 +120,6 @@ const TextType = ({
 
           setCurrentTextIndex((prev) => (prev + 1) % textArray.length);
           setCurrentCharIndex(0);
-          timeout = setTimeout(() => {}, pauseDuration);
         } else {
           timeout = setTimeout(() => {
             setDisplayedText((prev) => prev.slice(0, -1));
@@ -158,6 +167,7 @@ const TextType = ({
     reverseMode,
     variableSpeed,
     onSentenceComplete,
+    reducedMotion,
   ]);
 
   const shouldHideCursor =
@@ -175,9 +185,9 @@ const TextType = ({
       className="inline"
       style={{ color: getCurrentTextColor() || "inherit" }}
     >
-      {displayedText}
+      {reducedMotion ? textArray[0] : displayedText}
     </span>,
-    showCursor && (
+    showCursor && !reducedMotion && (
       <span
         ref={cursorRef}
         className={`ml-1 inline-block opacity-100 ${

@@ -118,12 +118,13 @@ const MealCard = ({
 
         {showRating && (
           <div className="mt-4 flex flex-col items-center">
-            <div className="flex items-center space-x-1">
+            <div role="group" aria-label={`Rate ${meal.mealName}`} className="flex items-center space-x-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
                   type="button"
                   aria-label={`Rate ${star} star${star === 1 ? '' : 's'}`}
+                  aria-pressed={star === (rating || meal.userRating || 0)}
                   onClick={() => handleRating(star)}
                   disabled={isRating}
                   className={`focus:outline-none text-2xl transition-all active:scale-[0.90] ${
@@ -142,10 +143,12 @@ const MealCard = ({
           </div>
         )}
 
-        {showFeedback && <div className="mt-3 flex justify-center gap-3">
-          <button type="button" disabled={isFeedback} onClick={() => handleFeedback(true)}
+        {showFeedback && <div role="group" aria-label={`Feedback for ${meal.mealName}`} className="mt-3 flex justify-center gap-3">
+          <button type="button" aria-pressed={(feedback ?? meal.userFeedback) === true}
+            disabled={isFeedback} onClick={() => handleFeedback(true)}
             className="rounded-full border border-border px-3 py-1 text-sm disabled:opacity-50">Like</button>
-          <button type="button" disabled={isFeedback} onClick={() => handleFeedback(false)}
+          <button type="button" aria-pressed={(feedback ?? meal.userFeedback) === false}
+            disabled={isFeedback} onClick={() => handleFeedback(false)}
             className="rounded-full border border-border px-3 py-1 text-sm disabled:opacity-50">Dislike</button>
         </div>}
 

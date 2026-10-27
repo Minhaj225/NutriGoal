@@ -170,7 +170,16 @@ test('admin edits a meal and can retry a failed delete', async ({ page }) => {
   await expect(page.getByText('Meal updated successfully!')).toBeVisible();
   expect(meal.protein).toBe(12);
   expect(meal.totalRatings).toBe(2);
-  await page.getByRole('button', { name: 'Delete Test Dal' }).click();
+  const deleteButton = page.getByRole('button', { name: 'Delete Test Dal' });
+  await deleteButton.click();
+  await expect(page.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Confirm' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(deleteButton).toBeFocused();
+  await deleteButton.click();
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Try again');

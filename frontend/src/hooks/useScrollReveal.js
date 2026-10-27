@@ -5,8 +5,10 @@ import ScrollTrigger from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 export function useScrollReveal(selector = '.reveal-up', options = {}) {
+  const { y = 20, duration = 0.4, ease = 'power2.out', start = 'top 80%',
+    toggleActions = 'play none none none' } = options;
   useEffect(() => {
-    let mm = gsap.matchMedia();
+    const mm = gsap.matchMedia();
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       const elements = gsap.utils.toArray(selector);
@@ -16,17 +18,17 @@ export function useScrollReveal(selector = '.reveal-up', options = {}) {
           el,
           { 
             opacity: 0, 
-            y: options.y || 20 
+            y
           },
           {
             opacity: 1,
             y: 0,
-            duration: options.duration || 0.4,
-            ease: options.ease || 'power2.out',
+            duration,
+            ease,
             scrollTrigger: {
               trigger: el,
-              start: options.start || 'top 80%',
-              toggleActions: options.toggleActions || 'play none none none',
+              start,
+              toggleActions,
             },
           }
         );
@@ -41,5 +43,5 @@ export function useScrollReveal(selector = '.reveal-up', options = {}) {
     });
 
     return () => mm.revert();
-  }, [selector, options]);
+  }, [selector, y, duration, ease, start, toggleActions]);
 }

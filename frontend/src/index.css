@@ -5,17 +5,17 @@
   --color-surface: #FFFFFF;
   --color-surface-alt: #F4F4F5;
   --color-border: #E4E4E7;
-  --color-border-focus: #10b981;
+  --color-border-focus: #047857;
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #4b5563;
-  --color-text-muted: #9ca3af;
-  --color-primary: #10b981;
-  --color-primary-hover: #059669;
+  --color-text-muted: #5b6472;
+  --color-primary: #047857;
+  --color-primary-hover: #065f46;
   --color-primary-muted: rgba(16, 185, 129, 0.08);
-  --color-error: #ef4444;
+  --color-error: #b91c1c;
   --color-error-muted: rgba(239, 68, 68, 0.08);
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
+  --color-success: #047857;
+  --color-warning: #92400e;
   --color-warning-muted: rgba(245, 158, 11, 0.08);
   --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
 }

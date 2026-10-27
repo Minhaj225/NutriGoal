@@ -165,17 +165,18 @@ const Recommendations = () => {
         <section className="bg-surface rounded-2xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 md:p-8 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
+              <span className="block text-sm font-medium text-text-primary mb-1.5">
                 Signed in as
-              </label>
+              </span>
               <div className="w-full bg-surface-alt border border-border rounded-lg px-4 py-3 text-text-primary">{email}</div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
+              <label htmlFor="recommend-meal-type" className="block text-sm font-medium text-text-primary mb-1.5">
                 Meal Type
               </label>
               <select
+                id="recommend-meal-type"
                 value={filters.mealType}
                 onChange={(e) => handleFilterChange("mealType", e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors appearance-none"
@@ -188,10 +189,11 @@ const Recommendations = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
+              <label htmlFor="recommend-limit" className="block text-sm font-medium text-text-primary mb-1.5">
                 Results
               </label>
               <select
+                id="recommend-limit"
                 value={filters.limit}
                 onChange={(e) => handleFilterChange("limit", parseInt(e.target.value))}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors appearance-none"

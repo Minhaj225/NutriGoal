@@ -11,6 +11,23 @@ const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const userButtonRef = useRef(null);
+  const mobileButtonRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) mobileMenuRef.current?.querySelector('a')?.focus();
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    const dismiss = event => {
+      if (event.key !== 'Escape') return;
+      if (isMobileMenuOpen) { setIsMobileMenuOpen(false); mobileButtonRef.current?.focus(); }
+      if (isUserMenuOpen) { setIsUserMenuOpen(false); userButtonRef.current?.focus(); }
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [isMobileMenuOpen, isUserMenuOpen]);
 
   useEffect(() => {
     const handleAdminChange = () => {
@@ -76,6 +93,7 @@ const Navigation = () => {
                 <Link
                   key={link.to}
                   to={link.to}
+                  aria-current={isActive(link.to) ? 'page' : undefined}
                   className={`text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${
                     isActive(link.to)
                       ? "text-primary bg-primary-muted"
@@ -88,6 +106,7 @@ const Navigation = () => {
               {isAdmin && (
                 <Link
                   to="/admin/meals"
+                  aria-current={isActive('/admin/meals') ? 'page' : undefined}
                   className={`text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${
                     isActive("/admin/meals")
                       ? "text-primary bg-primary-muted"
@@ -104,6 +123,7 @@ const Navigation = () => {
               {/* Admin icon (desktop) */}
               <div className="relative" ref={userMenuRef}>
                 <button
+                  ref={userButtonRef}
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-surface-alt hover:bg-border transition-colors"
                   id="user-menu-button"
@@ -209,9 +229,12 @@ const Navigation = () => {
 
               {/* Mobile hamburger */}
               <button
+                ref={mobileButtonRef}
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-alt transition-colors"
                 aria-label="Toggle menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-navigation"
               >
                 <svg
                   className="w-5 h-5 text-text-secondary"
@@ -234,18 +257,14 @@ const Navigation = () => {
       </nav>
 
       {/* Mobile full-screen overlay */}
-      <div
-        className={`fixed inset-0 z-40 bg-white/95 backdrop-blur-lg transition-all duration-300 md:hidden ${
-          isMobileMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-      >
+      {isMobileMenuOpen && <div id="mobile-navigation" ref={mobileMenuRef}
+        className="fixed inset-0 z-40 bg-white/95 backdrop-blur-lg md:hidden">
         <div className="flex flex-col items-center justify-center h-full gap-2">
           {navLinks.map((link, index) => (
             <Link
               key={link.to}
               to={link.to}
+              aria-current={isActive(link.to) ? 'page' : undefined}
               className={`text-2xl font-semibold px-6 py-3 rounded-full transition-all duration-300 ${
                 isMobileMenuOpen
                   ? "opacity-100 translate-y-0"
@@ -266,6 +285,7 @@ const Navigation = () => {
           {isAdmin && (
             <Link
               to="/admin/meals"
+              aria-current={isActive('/admin/meals') ? 'page' : undefined}
               className={`text-2xl font-semibold px-6 py-3 rounded-full transition-all duration-300 ${
                 isMobileMenuOpen
                   ? "opacity-100 translate-y-0"
@@ -286,7 +306,7 @@ const Navigation = () => {
             </Link>
           )}
         </div>
-      </div>
+      </div>}
     </>
   );
 };

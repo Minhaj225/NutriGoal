@@ -7,6 +7,8 @@ import ErrorMessage from "../components/common/ErrorMessage.jsx";
 import TextType from "../components/extra/TextType.jsx";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
 
+const heroText = ["Eat smarter.", "Live better.", "NutriGoal."];
+
 const Home = () => {
   const [stats, setStats] = useState(null);
   const [featuredMeals, setFeaturedMeals] = useState([]);
@@ -66,7 +68,7 @@ const Home = () => {
             <div className="lg:w-[60%] w-full">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter text-text-primary leading-[1.08] mb-6">
                 <TextType
-                  text={["Eat smarter.", "Live better.", "NutriGoal."]}
+                  text={heroText}
                   typingSpeed={75}
                   pauseDuration={1500}
                   showCursor={true}

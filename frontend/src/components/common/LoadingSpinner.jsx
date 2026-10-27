@@ -8,8 +8,8 @@ const LoadingSpinner = ({ size = 'md', message = 'Loading...' }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <div className={`animate-spin rounded-full border-t-accent border-r-transparent border-b-accent border-l-transparent ${sizeClasses[size]}`}></div>
+    <div role="status" aria-busy="true" className="flex flex-col items-center justify-center p-4">
+      <div className={`animate-spin rounded-full border-t-primary border-r-transparent border-b-primary border-l-transparent ${sizeClasses[size]}`}></div>
       {message && <p className="mt-4 text-sm text-text-secondary">{message}</p>}
     </div>
   );

@@ -80,10 +80,11 @@ const AdminLogin = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
+            <label htmlFor="admin-username" className="block text-sm font-medium text-text-secondary mb-2">
               Username
             </label>
             <input
+              id="admin-username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -94,10 +95,11 @@ const AdminLogin = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
+            <label htmlFor="admin-password" className="block text-sm font-medium text-text-secondary mb-2">
               Password
             </label>
             <input
+              id="admin-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
