@@ -6,8 +6,14 @@ const app = require('../app');
 const Meal = require('../models/Meal');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { meal: validateMeal } = require('../validation');
 
 afterEach(() => jest.restoreAllMocks());
+
+test('optional meal macros can be cleared only on update', () => {
+  expect(validateMeal({ carbohydrates: null, fats: null }, false)).toEqual({ carbohydrates: null, fats: null });
+  expect(() => validateMeal({ carbohydrates: null }, true)).toThrow();
+});
 
 test.each([
   'page=0', 'page=-1', 'page=1.5', 'page=1junk', 'page=99999999999999999999', 'page=1&page=2',

@@ -35,7 +35,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'alive' });
 });
 app.get('/api/ready', async (req, res) => {
-  const connected = mongoose.connection.readyState === 1;
+  const connected = mongoose.connection.readyState === 1 ||
+    (process.env.NODE_ENV !== 'test' && await connectDb().then(() => true, () => false));
   const limiterReady = await rateLimits.ready().then(() => true, () => false);
   const ready = connected && limiterReady;
   const modelRequested = process.env.RECOMMENDER_MODE === 'behavioral';

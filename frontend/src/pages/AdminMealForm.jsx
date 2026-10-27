@@ -110,10 +110,8 @@ const AdminMealForm = () => {
         ...form,
         calories: Number(form.calories),
         protein: Number(form.protein),
-        carbohydrates: form.carbohydrates
-          ? Number(form.carbohydrates)
-          : undefined,
-        fats: form.fats ? Number(form.fats) : undefined,
+        carbohydrates: form.carbohydrates ? Number(form.carbohydrates) : editingId ? null : undefined,
+        fats: form.fats ? Number(form.fats) : editingId ? null : undefined,
         allergens: form.allergens
           ? form.allergens
               .split(",")

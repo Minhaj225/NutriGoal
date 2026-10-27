@@ -119,6 +119,8 @@ function meal(body, creating) {
     else if (key === 'isActive') {
       if (typeof value !== 'boolean') invalid('Invalid isActive');
       result[key] = value;
+    } else if (!creating && ['carbohydrates', 'fats'].includes(key) && value === null) {
+      result[key] = null;
     } else {
       if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (key === 'nutritionScore' && value > 10)) invalid(`Invalid ${key}`);
       result[key] = value;

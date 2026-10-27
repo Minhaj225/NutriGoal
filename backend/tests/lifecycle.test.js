@@ -31,6 +31,27 @@ test('liveness stays cheap while readiness reports a disconnected database', asy
   expect((await request(app).get('/api/ready')).status).toBe(503);
 });
 
+test('readiness connects on a healthy cold request', async () => {
+  const oldEnv = process.env.NODE_ENV;
+  const oldUri = process.env.MONGO_URI;
+  const uri = new URL(process.env.TEST_MONGO_URI);
+  expect(['localhost', '127.0.0.1', '[::1]']).toContain(uri.hostname);
+  expect(uri.pathname).toBe('/nutrigoal_test');
+  uri.searchParams.set('directConnection', 'true');
+  process.env.NODE_ENV = 'development';
+  process.env.MONGO_URI = uri.toString();
+  try {
+    const response = await request(app).get('/api/ready');
+    expect(response.status).toBe(200);
+    expect(response.body.components.database).toBe('ready');
+  } finally {
+    await mongoose.disconnect();
+    process.env.NODE_ENV = oldEnv;
+    if (oldUri === undefined) delete process.env.MONGO_URI;
+    else process.env.MONGO_URI = oldUri;
+  }
+});
+
 test('concurrent DB requests share one connection attempt and retry after failure', async () => {
   let complete;
   const connect = jest.spyOn(mongoose, 'connect')
@@ -96,6 +117,21 @@ test('statistics use only current authenticated rating sums and refresh after wr
   expect((await request(app).get('/api/ready')).status).toBe(200);
   await Meal.updateOne({ mealName: 'One' }, { ratingSum: 1, averageRating: 1 });
   expect((await request(app).get('/api/meals/stats')).body.stats.averageRating).toBe(1);
+});
+
+test('admin can clear optional meal macros', async () => {
+  const admin = await User.create({ username: 'macro-admin', email: 'macro-admin@example.com',
+    password: 'Password123!', role: 'admin' });
+  const token = jwt.sign({ id: String(admin.id), role: 'admin' }, process.env.JWT_SECRET,
+    { algorithm: 'HS256' });
+  const meal = await Meal.create({ mealName: 'Macro Meal', cuisine: 'General', category: 'Main Dish',
+    dietaryPreference: 'Vegetarian', calories: 250, protein: 12, carbohydrates: 30, fats: 8 });
+  const response = await request(app).put(`/api/meals/${meal.id}`)
+    .set('Authorization', `Bearer ${token}`).send({ carbohydrates: null, fats: null });
+  expect(response.status).toBe(200);
+  const saved = await Meal.findById(meal.id);
+  expect(saved.carbohydrates).toBeNull();
+  expect(saved.fats).toBeNull();
 });
 
 test('equal-sort meal pages are stable and profile reads exclude embedded history', async () => {

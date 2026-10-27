@@ -144,7 +144,8 @@ test('admin edits a meal and can retry a failed delete', async ({ page }) => {
   await mockApi(page);
   let meal = { _id: '000000000000000000000010', mealName: 'Test Dal', cuisine: 'General',
     category: 'Main Dish', dietaryPreference: 'Vegetarian', calories: 180, protein: 9,
-    totalRatings: 2, averageRating: 4, allergenStatus: 'unknown', allergens: [], ingredients: [] };
+    carbohydrates: 28, fats: 7, totalRatings: 2, averageRating: 4,
+    allergenStatus: 'unknown', allergens: [], ingredients: [] };
   let deleteCalls = 0;
   await page.route('**/api/meals?**', route => route.fulfill({ json: {
     success: true, meals: meal ? [meal] : [], totalPages: 1,
@@ -166,9 +167,13 @@ test('admin edits a meal and can retry a failed delete', async ({ page }) => {
   await expect(page.getByText('Test Dal', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Edit Test Dal' }).click();
   await page.getByLabel('Protein (g) *').fill('12');
+  await page.getByLabel('Carbohydrates (g)').fill('');
+  await page.getByLabel('Fats (g)').fill('');
   await page.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.getByText('Meal updated successfully!')).toBeVisible();
   expect(meal.protein).toBe(12);
+  expect(meal.carbohydrates).toBeNull();
+  expect(meal.fats).toBeNull();
   expect(meal.totalRatings).toBe(2);
   const deleteButton = page.getByRole('button', { name: 'Delete Test Dal' });
   await deleteButton.click();

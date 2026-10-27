@@ -25,7 +25,7 @@ const StudentForm = () => {
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(readSession()?.role === 'student');
   const [allergyInput, setAllergyInput] = useState('');
-  const edited = useRef(false);
+  const edited = useRef(new Set());
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [existingProfile, setExistingProfile] = useState(null);
@@ -40,13 +40,21 @@ const StudentForm = () => {
       if (readSession()?.role === 'student') {
         try {
           const response = await studentAPI.getProfile(controller.signal);
-          if (!controller.signal.aborted && !edited.current && response.success && response.student) {
-            setForm(prev => ({ ...prev, ...response.student,
-              email: readSession()?.email || prev.email,
-              preferences: { ...prev.preferences, ...response.student.preferences },
-              nutritionGoals: { ...prev.nutritionGoals, ...response.student.nutritionGoals },
-            }));
-            setAllergyInput((response.student.allergies || []).join(', '));
+          if (!controller.signal.aborted && response.success && response.student) {
+            setForm(prev => {
+              const next = { ...prev, ...response.student,
+                email: readSession()?.email || prev.email,
+                preferences: { ...prev.preferences, ...response.student.preferences },
+                nutritionGoals: { ...prev.nutritionGoals, ...response.student.nutritionGoals },
+              };
+              for (const field of edited.current) {
+                const [parent, child] = field.split('.');
+                if (child) next[parent][child] = prev[parent][child];
+                else next[parent] = prev[parent];
+              }
+              return next;
+            });
+            if (!edited.current.has('allergies')) setAllergyInput((response.student.allergies || []).join(', '));
             setExistingProfile(response.student);
           }
         } catch (err) {
@@ -61,8 +69,8 @@ const StudentForm = () => {
   }, []);
 
   const handleChange = (e) => {
-    edited.current = true;
     const { name, value } = e.target;
+    edited.current.add(name);
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setForm(prev => ({
@@ -78,7 +86,7 @@ const StudentForm = () => {
   };
 
   const handleArrayChange = (field, value, isChecked) => {
-    edited.current = true;
+    edited.current.add(field);
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setForm(prev => ({
@@ -101,7 +109,7 @@ const StudentForm = () => {
   };
 
   const handleAllergiesChange = (e) => {
-    edited.current = true;
+    edited.current.add('allergies');
     setAllergyInput(e.target.value);
   };
 
