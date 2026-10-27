@@ -7,6 +7,7 @@ import BrowseMeals from "./pages/BrowseMeals.jsx";
 import AdminMealForm from "./pages/AdminMealForm.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import StudentAuth from './pages/StudentAuth.jsx';
+import NotFound from './pages/NotFound.jsx';
 import Navigation from "./components/common/Navigation.jsx";
 import { systemAPI } from './services/api';
 import { readSession } from './services/session';
@@ -67,6 +68,7 @@ const App = () => {
             }
           />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </Router>

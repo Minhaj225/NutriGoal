@@ -12,42 +12,35 @@ const Home = () => {
   const [featuredMeals, setFeaturedMeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [apiInfo, setApiInfo] = useState(null);
+  const [reload, setReload] = useState(0);
+  const [healthStatus, setHealthStatus] = useState('unavailable');
+  const [recommendationMode, setRecommendationMode] = useState('unavailable');
 
   useEffect(() => {
+    let active = true;
     const fetchHomeData = async () => {
-      try {
-        setLoading(true);
-
-        const [infoRes, healthRes, statsRes, mealsRes] = await Promise.all([
-          systemAPI.getApiInfo().catch(() => ({ recommendationMode: 'unavailable' })),
-          systemAPI.healthCheck().catch(() => ({ status: "error" })),
-          mealAPI.getStats().catch(() => ({ stats: null })),
-          mealAPI.getMeals({ limit: 3, sortBy: 'popularity' }).catch(() => ({ meals: [] })),
-        ]);
-
-        if (statsRes.stats) {
-          setStats({
-            ...statsRes.stats,
-            healthySystem: healthRes.status === "ready",
-          });
-        }
-
-        if (mealsRes.meals && mealsRes.meals.length > 0) {
-          setFeaturedMeals(mealsRes.meals);
-        }
-
-        setApiInfo(infoRes);
-      } catch (err) {
-        console.error("Error fetching home data:", err);
-        setError("Failed to load dashboard data. Please check connection.");
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      setError('');
+      const [health, statsResult, mealsResult] = await Promise.allSettled([
+        systemAPI.healthCheck(), mealAPI.getStats(), mealAPI.getMeals({}, 1, 3, 'popularity'),
+      ]);
+      if (!active) return;
+      const ready = health.status === 'fulfilled' && health.value.status === 'ready';
+      setHealthStatus(ready ? 'ready' : 'unavailable');
+      setRecommendationMode(ready ? health.value.components?.recommender || 'unavailable' : 'unavailable');
+      setStats(statsResult.status === 'fulfilled' && statsResult.value.stats
+        ? { ...statsResult.value.stats, healthySystem: ready } : null);
+      setFeaturedMeals(mealsResult.status === 'fulfilled' && Array.isArray(mealsResult.value.meals)
+        ? mealsResult.value.meals : []);
+      if ([health, statsResult, mealsResult].some(result => result.status === 'rejected')) {
+        setError('Dashboard data is unavailable. Try again when the service recovers.');
       }
+      setLoading(false);
     };
 
     fetchHomeData();
-  }, []);
+    return () => { active = false; };
+  }, [reload]);
 
   useScrollReveal('.reveal-up');
 
@@ -81,10 +74,11 @@ const Home = () => {
                 />
               </h1>
               <p className="text-lg text-text-secondary max-w-md mb-8 leading-relaxed">
-                AI-powered meal recommendations tailored to your nutrition goals, preferences, and lifestyle.
+                Meal suggestions filtered by your nutrition goals, preferences, and allergies.
               </p>
 
-              {error && <ErrorMessage message={error} />}
+              {error && <ErrorMessage message={error} onRetry={() => setReload(value => value + 1)} />}
+              <p role="status" className="text-sm text-text-secondary mb-4">Service status: {healthStatus}</p>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <Link
@@ -113,8 +107,8 @@ const Home = () => {
                       </svg>
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-text-primary">Your Top Match</div>
-                      <div className="text-xs text-text-muted">98% confidence</div>
+                      <div className="text-sm font-semibold text-text-primary">Example meals</div>
+                      <div className="text-xs text-text-muted">Illustration only</div>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -134,7 +128,7 @@ const Home = () => {
                 </div>
                 {/* Decorative floating badge */}
                 <div className="absolute -top-3 -left-3 bg-primary text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md">
-                  AI Powered ✨
+                  Example
                 </div>
               </div>
             </div>
@@ -170,8 +164,8 @@ const Home = () => {
                   {stats.healthySystem ? "Online ✓" : "Issues ✕"}
                 </div>
                 <div className="text-text-muted text-sm">
-                  {apiInfo?.recommendationMode === 'behavioral_configured' ? 'Behavioral mode configured' :
-                    apiInfo?.recommendationMode === 'baseline' ? 'Baseline recommendations' : 'Recommendation status unavailable'}
+                  {recommendationMode === 'behavioral_configured' ? 'Behavioral mode configured' :
+                    recommendationMode === 'baseline' ? 'Baseline recommendations' : 'Recommendation status unavailable'}
                 </div>
               </div>
             </div>
@@ -192,9 +186,9 @@ const Home = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold text-text-primary mb-3">AI-Powered Recommendations</h3>
+                <h3 className="text-lg md:text-xl font-semibold text-text-primary mb-3">Profile-Based Recommendations</h3>
                 <p className="text-text-secondary text-sm leading-relaxed max-w-md">
-                  Our machine learning model analyzes your preferences, nutrition goals, and eating history to provide deeply personalized meal suggestions that improve over time.
+                  Profile filters select eligible meals. Verified crowd ratings rank the results while behavioral mode awaits approval.
                 </p>
               </div>
 
@@ -207,7 +201,7 @@ const Home = () => {
                 <div className="absolute right-8 lg:right-12 -bottom-2 bg-white rounded-t-xl border border-border border-b-0 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] p-5 w-64 lg:w-72 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
                   <div className="flex items-center justify-between mb-4">
                      <div className="text-xs font-semibold text-text-primary">Macro Analysis</div>
-                     <div className="text-[10px] text-primary font-semibold bg-primary-muted px-2 py-0.5 rounded-full border border-primary/20">98% Fit</div>
+                     <div className="text-[10px] text-primary font-semibold bg-primary-muted px-2 py-0.5 rounded-full border border-primary/20">Example</div>
                   </div>
                   <div className="space-y-3">
                      <div>
@@ -267,7 +261,7 @@ const Home = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {featuredMeals.map((meal) => (
-                <MealCard key={meal._id} meal={meal} showRating={true} />
+                <MealCard key={meal._id} meal={meal} showRating={false} />
               ))}
             </div>
           </section>
@@ -281,7 +275,7 @@ const Home = () => {
                 Ready to eat smarter?
               </h2>
               <p className="text-text-secondary mb-8 leading-relaxed">
-                Create your profile in under 2 minutes and get AI-powered meal recommendations tailored just for you.
+                Create your profile to filter meals by your preferences and nutrition goals.
               </p>
               <Link
                 to="/profile"

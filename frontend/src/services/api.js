@@ -116,18 +116,6 @@ export const mealAPI = {
     return response.data;
   },
 
-  // Search meals with advanced filtering
-  searchMeals: async (searchTerm, filters = {}) => {
-    const params = new URLSearchParams({ search: searchTerm });
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params.append(key, value);
-      }
-    });
-    
-    const response = await api.get(`/meals/search?${params}`);
-    return response.data;
-  }
 };
 
 // Enhanced student API functions
@@ -185,12 +173,6 @@ export const systemAPI = {
   healthCheck: async () => {
     const response = await api.get('/ready');
     return response.data;
-  },
-
-  // API info
-  getApiInfo: async () => {
-    const response = await api.get('/');
-    return response.data;
   }
 };
 
@@ -215,47 +197,12 @@ export const apiUtils = {
     ...meal,
     formattedCalories: `${meal.calories} kcal`,
     formattedProtein: `${meal.protein}g protein`,
-    formattedCarbs: meal.carbohydrates ? `${meal.carbohydrates}g carbs` : '',
-    formattedFats: meal.fats ? `${meal.fats}g fats` : '',
+    formattedCarbs: meal.carbohydrates != null ? `${meal.carbohydrates}g carbs` : '',
+    formattedFats: meal.fats != null ? `${meal.fats}g fats` : '',
     nutritionSummary: `${meal.calories} cal • ${meal.protein}g protein`,
-    ratingDisplay: meal.averageRating ? `${meal.averageRating.toFixed(1)} ⭐ (${meal.totalRatings})` : 'No ratings'
+    ratingDisplay: meal.totalRatings > 0 && meal.averageRating != null
+      ? `${meal.averageRating.toFixed(1)} ⭐ (${meal.totalRatings})` : 'No ratings'
   }),
-
-  // Validate email
-  validateEmail: (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  },
-
-  // Get cuisine color for UI
-  getCuisineColor: (cuisine) => {
-    const colors = {
-      'North Indian': 'bg-orange-300 text-black',
-      'South Indian': 'bg-green-300 text-black',
-      'Street Food': 'bg-yellow-300 text-black',
-      'General': 'bg-gray-100 text-gray-900'
-    };
-    return colors[cuisine] || colors['General'];
-  },
-
-  // Get category icon
-  getCategoryIcon: (category) => {
-    const icons = {
-      'Main Dish': '🍽️',
-      'Breakfast': '🌅',
-      'Snack': '🍿',
-      'Side Dish': '🥗',
-      'Staple': '🍚'
-    };
-    return icons[category] || '🍽️';
-  },
-
-  // Get diet preference color
-  getDietColor: (diet) => {
-    return diet === 'Vegetarian' 
-      ? 'bg-green-300 text-black' 
-      : 'bg-orange-300 text-black';
-  }
 };
 
 export default api;
