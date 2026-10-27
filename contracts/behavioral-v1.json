@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "behavioral-v1",
+  "modelVersion": "test-v1",
+  "meals": [
+    {
+      "meal_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "meal_name": "Dal",
+      "calories": 200,
+      "protein": 10,
+      "cuisine": "General",
+      "category": "Main Dish",
+      "diet": "Vegetarian"
+    }
+  ]
+}

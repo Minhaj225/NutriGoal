@@ -27,13 +27,13 @@ def main():
     headers = {'X-ML-Token': token}
     health_status, health = call('/health')
     ready_status, ready = call('/ready')
-    print('Health:', health_status, health)
-    print('Readiness:', ready_status, ready)
-    if ready_status != 200:
-        print('No approved model is deployed; backend baseline remains available')
-        return
+    if health_status != 200 or not isinstance(health, dict):
+        raise SystemExit(f'Health check failed: {health_status}')
+    if ready_status != 200 or ready.get('modelStatus') != 'ready':
+        raise SystemExit(f'Approved model is unavailable: {ready_status}')
     features_status, features = call('/features', headers)
-    if features_status != 200:
+    if (features_status != 200 or not isinstance(features, dict) or
+            not isinstance(features.get('features'), list) or not features.get('modelVersion')):
         raise SystemExit(f'Feature request failed: {features_status}')
     version = features['modelVersion']
     meal = {'meal_id': 'a' * 24, 'meal_name': 'Dal Tadka', 'calories': 180,
@@ -41,7 +41,16 @@ def main():
             'diet': 'Vegetarian'}
     body = {'schemaVersion': 'behavioral-v1', 'modelVersion': version, 'meals': [meal]}
     prediction_status, prediction = call('/predict_batch', headers, body)
-    print('Prediction:', prediction_status, prediction)
+    results = prediction.get('results') if isinstance(prediction, dict) else None
+    if (prediction_status != 200 or not isinstance(prediction, dict) or
+            prediction.get('modelVersion') != version or
+            not isinstance(results, list) or len(results) != 1 or
+            results[0].get('meal_id') != meal['meal_id'] or
+            not isinstance(results[0].get('recommended'), bool) or
+            not isinstance(results[0].get('confidence'), (int, float)) or
+            not 0 <= results[0]['confidence'] <= 1):
+        raise SystemExit(f'Prediction contract failed: {prediction_status}')
+    print('Approved model HTTP smoke passed')
 
 
 if __name__ == '__main__':

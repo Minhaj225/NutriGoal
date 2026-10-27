@@ -1,39 +1,46 @@
-### 1. Clone and Setup
+# Quick start
 
-```bash
+Use Node.js 22.12+ (22.x), npm 10+, Python 3.12, and a local MongoDB instance. This starts the safe baseline recommender; no model artifact is required.
+
+```sh
 git clone https://github.com/Minhaj225/NutriGoal.git
-```
-
-### 2. Backend Setup
-
-```bash
+cd NutriGoal
 cd backend
-npm install
-cp .env.example .env # Edit .env with your MongoDB URI and configuration
-
-export MIGRATION_URI='mongodb://127.0.0.1:27017/nutrigoal' # Replace with your explicitly chosen database
-npm run seed -- --uri-env MIGRATION_URI --file fixtures/sample-meals.csv # Preview only
-# Review ../docs/catalogue-migration.md, then use --apply --confirm-db <database>
-npm run create-admin # Run once to Create an admin account for the dashboard
-
-npm run dev
+npm ci
+cp .env.example .env
 ```
 
-### 3. Frontend Setup
+Edit `backend/.env`: set a local `MONGO_URI`, a unique `JWT_SECRET` from `openssl rand -base64 48`, `FRONTEND_URL=http://localhost:5173`, and `RATE_LIMIT_MODE=memory` for local use. Keep `.env` out of Git. Start the API from `backend/` with `npm run dev`.
 
-```bash
-cd frontend
-npm install
+In another terminal, from the directory containing the clone:
+
+```sh
+cd NutriGoal/frontend
+npm ci
 cp .env.example .env.local
-# Edit .env.local with your API URLs
 npm run dev
 ```
 
-### 4. ML Service Setup
+Set `VITE_API_URL=http://localhost:5001/api` in `.env.local` if the default differs. Students can register in the browser, create a profile, browse, and rate meals. If the catalogue is empty, preview the sample CSV before deciding whether to apply it:
 
-```bash
-cd ml
-pip install -r requirements.txt
-cd api
-python app.py
+```sh
+cd NutriGoal/backend
+export MIGRATION_URI='mongodb://127.0.0.1:27017/nutrigoal'
+npm run seed -- --uri-env MIGRATION_URI --file fixtures/sample-meals.csv
 ```
+
+The command above is a preview. Follow [catalogue-migration.md](docs/catalogue-migration.md) for backup, mapping, apply, and rollback. Do not apply to an existing or production catalogue without that review.
+
+For an admin account, set a unique `ADMIN_USERNAME` and a 12–72 byte `ADMIN_PASSWORD` in `backend/.env`, then run `npm run create-admin` from `backend/`. The browser admin login is `/admin/login`.
+
+The Flask service is optional for baseline mode. For its contract tests, start from the directory containing the clone and run:
+
+```sh
+cd NutriGoal/ml
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cd ..
+ml/.venv/bin/python -m unittest discover -s ml/tests -p 'test_*.py'
+```
+
+See [testing.md](docs/testing.md) for backend replica-set and browser test commands. `GET /api/health` checks liveness; `GET /api/ready` reports required infrastructure readiness.

@@ -1,13 +1,15 @@
 {
   "name": "meal-recommender-backend",
+  "private": true,
   "version": "2.0.0",
-  "description": "Enhanced backend API for AI-powered meal recommendations",
+  "description": "NutriGoal meal, profile, feedback, and recommendation API",
   "main": "app.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "vercel-build": "echo 'Backend build complete'",
     "test": "jest --runInBand",
+    "test:unit": "jest --runInBand tests/contracts.test.js tests/validation.test.js tests/database-safety.test.js",
     "seed": "node scripts/seedMeals.js",
     "migrate:catalogue": "node scripts/migrateCatalogue.js",
     "migrate:feedback": "node scripts/migrateFeedback.js",
@@ -41,8 +43,7 @@
     "express",
     "mongodb"
   ],
-  "author": "Your Name",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "engines": {
     "node": ">=22.12.0 <23"
   }

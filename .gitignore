@@ -8,8 +8,6 @@ pnpm-debug.log*
 lerna-debug.log*
 
 
-docs
-
 # Runtime data
 pids
 *.pid
@@ -40,8 +38,6 @@ frontend/playwright-report/
 .env.development.local
 .env.test.local
 .env.production.local
-
-ml/model.pkl
 
 backend/.env
 

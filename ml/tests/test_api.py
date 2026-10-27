@@ -56,6 +56,16 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(self.client.get('/features', headers=self.headers).status_code, 200)
         self.assertNotIn('Access-Control-Allow-Origin', self.client.get('/health').headers)
 
+    def test_shared_behavioral_fixture(self):
+        fixture_path = Path(__file__).resolve().parents[2] / 'contracts' / 'behavioral-v1.json'
+        with fixture_path.open(encoding='utf-8') as stream:
+            fixture = json.load(stream)
+        response = self.client.post('/predict_batch', json=fixture, headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['modelVersion'], fixture['modelVersion'])
+        self.assertEqual(response.json['results'][0]['meal_id'], fixture['meals'][0]['meal_id'])
+        self.assertEqual(response.json['results'][0]['confidence'], 0.7)
+
     def test_single_and_batch_share_canonical_validation(self):
         valid = {'schemaVersion': 'behavioral-v1', 'modelVersion': 'test-v1', **self.meal}
         self.assertEqual(self.single(valid).status_code, 200)
