@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { mealAPI } from "../services/api";
+import { mealAPI, apiUtils } from "../services/api";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import ErrorMessage from "../components/common/ErrorMessage";
 import ConfirmModal from "../components/common/ConfirmModal";
 
-const AdminMealForm = () => {
-  const [form, setForm] = useState({
+const emptyForm = {
     mealName: "",
     cuisine: "North Indian",
     category: "Main Dish",
@@ -19,12 +18,17 @@ const AdminMealForm = () => {
     allergenStatus: "unknown",
     ingredients: "",
     description: "",
-    imageUrl: "",
-    nutritionScore: "",
-  });
+};
+
+const AdminMealForm = () => {
+  const [form, setForm] = useState(emptyForm);
 
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [page, setPage] = useState(1);
@@ -51,29 +55,43 @@ const AdminMealForm = () => {
   const dietOptions = ["Vegetarian", "Non-Vegetarian"];
 
   useEffect(() => {
-    loadMeals();
-    loadMLFeatures();
-  }, [page]);
+    const controller = new AbortController();
+    setListLoading(true);
+    mealAPI.getMeals({}, page, 20, 'popularity', controller.signal).then(response => {
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(response.meals)) throw new Error('Invalid meal list response');
+      const last = Math.max(1, response.totalPages || 1);
+      if (page > last) { setPage(last); return; }
+      setMeals(response.meals);
+      setTotalPages(last);
+    }).catch(err => {
+      if (!controller.signal.aborted) setError(`Failed to load meals: ${apiUtils.handleError(err)}`);
+    }).finally(() => {
+      if (!controller.signal.aborted) setListLoading(false);
+    });
+    return () => controller.abort();
+  }, [page, reload]);
 
-  const loadMeals = async () => {
-    try {
-      const response = await mealAPI.getMeals({}, page);
-      setMeals(response.meals || []);
-      setTotalPages(response.totalPages || 1);
-    } catch (err) {
-      console.error("Error loading meals:", err);
-    }
-  };
+  useEffect(() => {
+    let active = true;
+    mealAPI.getModelFeatures().then(response => {
+      if (active) {
+        setMlFeatures(Array.isArray(response.features) ? response.features : []);
+        setModelStatus(response.features?.length ? 'ready' : 'unavailable');
+      }
+    }, () => {
+      if (active) setModelStatus('unavailable');
+    });
+    return () => { active = false; };
+  }, []);
 
-  const loadMLFeatures = async () => {
-    try {
-      const response = await mealAPI.getModelFeatures();
-      setMlFeatures(response.features || []);
-      setModelStatus(response.features?.length ? "ready" : "unavailable");
-    } catch {
-      setMlFeatures([]);
-      setModelStatus("unavailable");
-    }
+  const beginEdit = meal => {
+    setEditingId(meal._id);
+    setForm({ ...emptyForm, ...Object.fromEntries(Object.keys(emptyForm)
+      .map(key => [key, Array.isArray(meal[key]) ? meal[key].join(', ') : meal[key] ?? emptyForm[key]])) });
+    setError(null);
+    setSuccess(null);
+    window.scrollTo(0, 0);
   };
 
   const handleChange = (e) => {
@@ -96,9 +114,6 @@ const AdminMealForm = () => {
           ? Number(form.carbohydrates)
           : undefined,
         fats: form.fats ? Number(form.fats) : undefined,
-        nutritionScore: form.nutritionScore
-          ? Number(form.nutritionScore)
-          : undefined,
         allergens: form.allergens
           ? form.allergens
               .split(",")
@@ -113,31 +128,15 @@ const AdminMealForm = () => {
           : [],
       };
 
-      await mealAPI.createMeal(mealData);
-      setSuccess("Meal added successfully!");
-
-      setForm({
-        mealName: "",
-        cuisine: "North Indian",
-        category: "Main Dish",
-        calories: "",
-        protein: "",
-        carbohydrates: "",
-        fats: "",
-        dietaryPreference: "Vegetarian",
-        servingSize: "",
-        allergens: "",
-        allergenStatus: "unknown",
-        ingredients: "",
-        description: "",
-        imageUrl: "",
-        nutritionScore: "",
-      });
-
-      setPage(1);
-      loadMeals();
+      if (editingId) await mealAPI.updateMeal(editingId, mealData);
+      else await mealAPI.createMeal(mealData);
+      setSuccess(editingId ? "Meal updated successfully!" : "Meal added successfully!");
+      setForm(emptyForm);
+      setEditingId(null);
+      if (!editingId) setPage(1);
+      setReload(value => value + 1);
     } catch (err) {
-      setError("Failed to add meal: " + err.message);
+      setError(`Failed to ${editingId ? 'update' : 'add'} meal: ${apiUtils.handleError(err)}`);
     } finally {
       setLoading(false);
     }
@@ -150,13 +149,14 @@ const AdminMealForm = () => {
   const confirmDelete = async () => {
     if (!mealToDelete) return;
     try {
+      setError(null);
+      setSuccess(null);
       await mealAPI.deleteMeal(mealToDelete);
       setSuccess("Meal deleted successfully!");
-      loadMeals();
+      setReload(value => value + 1);
     } catch (err) {
-      setError("Failed to delete meal: " + err.message);
+      throw new Error(apiUtils.handleError(err));
     }
-    setMealToDelete(null);
   };
 
   const handleBulkImport = async (e) => {
@@ -167,8 +167,9 @@ const AdminMealForm = () => {
       return;
     }
 
-    setLoading(true);
+    setImporting(true);
     setError(null);
+    setSuccess(null);
 
     try {
       if (bulkImportFile.size > 1_048_576) throw new Error("CSV must be 1 MiB or smaller");
@@ -183,14 +184,14 @@ const AdminMealForm = () => {
         setBulkImportFile(null);
         uploadForm.reset();
         setPage(1);
-        loadMeals();
+        setReload(value => value + 1);
       }
     } catch (err) {
       const rows = err.response?.data?.rowErrors;
       setError(rows?.length ? `${err.response.data.rejected} rejected: ${rows.map(item => `Row ${item.row}: ${item.message}`).join('; ')}` :
         `Failed to import meals: ${err.response?.data?.message || err.message}`);
     } finally {
-      setLoading(false);
+      setImporting(false);
     }
   };
 
@@ -226,7 +227,7 @@ const AdminMealForm = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Add New Meal Form — takes 2 columns */}
           <section className="lg:col-span-2 bg-surface rounded-2xl border border-border p-6 md:p-8">
-            <h2 className="text-xl font-semibold mb-6">Add New Meal</h2>
+            <h2 className="text-xl font-semibold mb-6">{editingId ? 'Edit Meal' : 'Add New Meal'}</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -363,21 +364,6 @@ const AdminMealForm = () => {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="nutritionScore" className={labelClassName}>Nutrition Score (0-10)</label>
-                  <input
-                    id="nutritionScore"
-                    name="nutritionScore"
-                    type="number"
-                    step="0.1"
-                    value={form.nutritionScore}
-                    onChange={handleChange}
-                    placeholder="7.5"
-                    className={inputClassName}
-                    min="0"
-                    max="10"
-                  />
-                </div>
               </div>
 
               <div>
@@ -391,18 +377,6 @@ const AdminMealForm = () => {
                   className={`${inputClassName} resize-y`}
                   rows="3"
                 ></textarea>
-              </div>
-
-              <div>
-                <label htmlFor="imageUrl" className={labelClassName}>Image URL</label>
-                <input
-                  id="imageUrl"
-                  name="imageUrl"
-                  value={form.imageUrl}
-                  onChange={handleChange}
-                  placeholder="https://example.com/meal-image.jpg"
-                  className={inputClassName}
-                />
               </div>
 
               <div>
@@ -447,8 +421,10 @@ const AdminMealForm = () => {
                   className="w-full bg-primary text-white font-medium py-3 rounded-full hover:bg-primary-hover transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
-                  {loading ? <LoadingSpinner size="sm" /> : "Add Meal"}
+                  {loading ? <LoadingSpinner size="sm" /> : editingId ? 'Save Changes' : "Add Meal"}
                 </button>
+                {editingId && <button type="button" className="mt-3 w-full text-text-secondary underline"
+                  onClick={() => { setEditingId(null); setForm(emptyForm); }}>Cancel Editing</button>}
               </div>
             </form>
           </section>
@@ -477,9 +453,9 @@ const AdminMealForm = () => {
                 <button
                   type="submit"
                   className="w-full px-6 py-2.5 bg-surface border border-border rounded-full text-sm font-medium hover:bg-surface-alt transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={loading || !bulkImportFile}
+                  disabled={importing || !bulkImportFile}
                 >
-                  {loading ? <LoadingSpinner size="sm" /> : importPreview ? "Apply Import" : "Preview CSV"}
+                  {importing ? <LoadingSpinner size="sm" /> : importPreview ? "Apply Import" : "Preview CSV"}
                 </button>
               </form>
             </section>
@@ -511,6 +487,7 @@ const AdminMealForm = () => {
         <section className="bg-surface rounded-2xl border border-border mt-8 overflow-hidden">
           <div className="p-6 border-b border-border">
             <h2 className="text-xl font-semibold">Existing Meals</h2>
+            {listLoading && <p role="status">Loading meals…</p>}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -565,8 +542,11 @@ const AdminMealForm = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
+                      <button onClick={() => beginEdit(meal)} aria-label={`Edit ${meal.mealName}`}
+                        className="text-primary hover:bg-primary-muted rounded-lg p-2 transition-colors">Edit</button>
                       <button
                         onClick={() => handleDelete(meal._id)}
+                        aria-label={`Delete ${meal.mealName}`}
                         className="text-error hover:bg-error-muted rounded-lg p-2 transition-colors"
                         title="Delete meal"
                       >
@@ -591,7 +571,8 @@ const AdminMealForm = () => {
               >
                 Previous
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) =>
+                Math.max(1, Math.min(page - 2, totalPages - 4)) + i).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPage(p)}

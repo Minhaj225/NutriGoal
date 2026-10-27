@@ -139,3 +139,42 @@ test('CSV validation errors show the server row count and reason', async ({ page
   await expect(page.getByText('1 rejected: Row 2: Invalid calories')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Apply Import' })).toHaveCount(0);
 });
+
+test('admin edits a meal and can retry a failed delete', async ({ page }) => {
+  await mockApi(page);
+  let meal = { _id: '000000000000000000000010', mealName: 'Test Dal', cuisine: 'General',
+    category: 'Main Dish', dietaryPreference: 'Vegetarian', calories: 180, protein: 9,
+    totalRatings: 2, averageRating: 4, allergenStatus: 'unknown', allergens: [], ingredients: [] };
+  let deleteCalls = 0;
+  await page.route('**/api/meals?**', route => route.fulfill({ json: {
+    success: true, meals: meal ? [meal] : [], totalPages: 1,
+  } }));
+  await page.route('**/api/meals/000000000000000000000010', route => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON();
+      expect(body.nutritionScore).toBeUndefined();
+      expect(body.averageRating).toBeUndefined();
+      meal = { ...meal, ...body };
+      return route.fulfill({ json: { success: true, meal } });
+    }
+    deleteCalls += 1;
+    if (deleteCalls === 1) return route.fulfill({ status: 503, json: { error: 'Try again' } });
+    meal = null;
+    return route.fulfill({ json: { success: true } });
+  });
+  await login(page);
+  await expect(page.getByText('Test Dal', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit Test Dal' }).click();
+  await page.getByLabel('Protein (g) *').fill('12');
+  await page.getByRole('button', { name: 'Save Changes' }).click();
+  await expect(page.getByText('Meal updated successfully!')).toBeVisible();
+  expect(meal.protein).toBe(12);
+  expect(meal.totalRatings).toBe(2);
+  await page.getByRole('button', { name: 'Delete Test Dal' }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Try again');
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(deleteCalls).toBe(2);
+});

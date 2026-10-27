@@ -50,7 +50,7 @@ export const mealAPI = {
   },
 
   // Get all meals with filtering
-  getMeals: async (filters = {}, page = 1, limit = 20, sortBy = "popularity") => {
+  getMeals: async (filters = {}, page = 1, limit = 20, sortBy = "popularity", signal) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -61,7 +61,7 @@ export const mealAPI = {
     params.append('limit', limit);
     params.append('sortBy', sortBy);
     
-    const response = await api.get(`/meals?${params}`);
+    const response = await api.get(`/meals?${params}`, { signal });
     return response.data;
   },
 
@@ -72,7 +72,7 @@ export const mealAPI = {
   },
 
   // Get recommendations for a student with enhanced options
-  getRecommendations: async (options = {}) => {
+  getRecommendations: async (options = {}, signal) => {
     const params = new URLSearchParams();
     Object.entries(options).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -80,7 +80,7 @@ export const mealAPI = {
       }
     });
     
-    const response = await api.get(`/meals/recommend/me?${params}`);
+    const response = await api.get(`/meals/recommend/me?${params}`, { signal });
     return response.data;
   },
 
@@ -139,8 +139,8 @@ export const studentAPI = {
   },
 
   // Get student profile by email
-  getProfile: async () => {
-    const response = await api.get('/students/me');
+  getProfile: async (signal) => {
+    const response = await api.get('/students/me', { signal });
     return response.data;
   },
 

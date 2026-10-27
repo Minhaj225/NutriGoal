@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from 'react-router-dom';
 import { mealAPI, apiUtils } from "../services/api";
 import MealCard from "../components/meals/MealCard";
@@ -13,6 +13,9 @@ const BrowseMeals = () => {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const activeRequest = useRef(null);
   const [filters, setFilters] = useState({
     cuisine: "",
     category: "",
@@ -28,6 +31,7 @@ const BrowseMeals = () => {
   // Debounce filters
   useEffect(() => {
     const timer = setTimeout(() => {
+      setPage(1);
       setDebouncedFilters(filters);
     }, 500);
     return () => clearTimeout(timer);
@@ -46,39 +50,42 @@ const BrowseMeals = () => {
   ];
 
   useEffect(() => {
-    fetchMeals();
-  }, []);
-
-  useEffect(() => {
-    fetchMeals();
-  }, [debouncedFilters, sortBy, page]);
-
-  const fetchMeals = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await mealAPI.getMeals(debouncedFilters, page, 20, sortBy);
-
-      if (response.success) {
-        setTotalPages(response.totalPages || 1);
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const fetchMeals = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await mealAPI.getMeals(debouncedFilters, page, 20, sortBy, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!response.success || !Array.isArray(response.meals)) throw new Error('Invalid meal list response');
+        const lastPage = Math.max(1, response.totalPages || 1);
+        if (page > lastPage) { setPage(lastPage); return; }
+        setTotalPages(lastPage);
+        setTotal(response.total || 0);
         setMeals(response.meals);
-      } else {
-        setError("Failed to fetch meals");
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setMeals([]);
+          setError(apiUtils.handleError(error));
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-    } catch (error) {
-      setError(apiUtils.handleError(error));
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    fetchMeals();
+    return () => controller.abort();
+  }, [debouncedFilters, sortBy, page, retry]);
 
   const handleFilterChange = (field, value) => {
+    activeRequest.current?.abort();
+    setMeals([]);
     setFilters((prev) => ({ ...prev, [field]: value }));
-    setPage(1);
   };
 
   const clearFilters = () => {
+    activeRequest.current?.abort();
+    setMeals([]);
     setFilters({
       cuisine: "",
       category: "",
@@ -87,7 +94,6 @@ const BrowseMeals = () => {
       maxCalories: "",
       minProtein: "",
     });
-    setPage(1);
   };
 
   const handleRating = async (mealId, rating) => {
@@ -125,8 +131,9 @@ const BrowseMeals = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Cuisine</label>
+              <label htmlFor="browse-cuisine" className="block text-sm font-medium text-text-secondary mb-2">Cuisine</label>
               <select
+                id="browse-cuisine"
                 value={filters.cuisine}
                 onChange={(e) => handleFilterChange("cuisine", e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
@@ -138,8 +145,9 @@ const BrowseMeals = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Category</label>
+              <label htmlFor="browse-category" className="block text-sm font-medium text-text-secondary mb-2">Category</label>
               <select
+                id="browse-category"
                 value={filters.category}
                 onChange={(e) => handleFilterChange("category", e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
@@ -151,8 +159,9 @@ const BrowseMeals = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Diet</label>
+              <label htmlFor="browse-diet" className="block text-sm font-medium text-text-secondary mb-2">Diet</label>
               <select
+                id="browse-diet"
                 value={filters.dietaryPreference}
                 onChange={(e) => handleFilterChange("dietaryPreference", e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
@@ -164,8 +173,9 @@ const BrowseMeals = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Min Calories</label>
+              <label htmlFor="browse-min-calories" className="block text-sm font-medium text-text-secondary mb-2">Min Calories</label>
               <input
+                id="browse-min-calories"
                 type="number"
                 value={filters.minCalories}
                 onChange={(e) => handleFilterChange("minCalories", e.target.value)}
@@ -175,8 +185,9 @@ const BrowseMeals = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Max Calories</label>
+              <label htmlFor="browse-max-calories" className="block text-sm font-medium text-text-secondary mb-2">Max Calories</label>
               <input
+                id="browse-max-calories"
                 type="number"
                 value={filters.maxCalories}
                 onChange={(e) => handleFilterChange("maxCalories", e.target.value)}
@@ -186,8 +197,9 @@ const BrowseMeals = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">Min Protein (g)</label>
+              <label htmlFor="browse-min-protein" className="block text-sm font-medium text-text-secondary mb-2">Min Protein (g)</label>
               <input
+                id="browse-min-protein"
                 type="number"
                 value={filters.minProtein}
                 onChange={(e) => handleFilterChange("minProtein", e.target.value)}
@@ -199,10 +211,11 @@ const BrowseMeals = () => {
 
           <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-6 border-t border-border">
             <div className="mb-4 sm:mb-0">
-              <label className="block text-sm font-medium text-text-secondary mb-2">Sort by</label>
+              <label htmlFor="browse-sort" className="block text-sm font-medium text-text-secondary mb-2">Sort by</label>
               <select
+                id="browse-sort"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => { activeRequest.current?.abort(); setMeals([]); setPage(1); setSortBy(e.target.value); }}
                 className="w-full sm:w-auto bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-colors"
               >
                 {sortOptions.map((option) => (
@@ -212,7 +225,7 @@ const BrowseMeals = () => {
             </div>
 
             <div className="text-text-muted text-sm">
-              Found {meals.length} meals on page {page} of {totalPages}
+              Found {total} meals · page {page} of {totalPages}
             </div>
           </div>
         </section>
@@ -222,7 +235,7 @@ const BrowseMeals = () => {
         </p>}
 
         {/* Error Display */}
-        {error && <ErrorMessage message={error} onRetry={fetchMeals} />}
+        {error && <ErrorMessage message={error} onRetry={() => setRetry(value => value + 1)} />}
 
         {/* Loading State */}
         {loading && (
@@ -256,7 +269,8 @@ const BrowseMeals = () => {
               >
                 Previous
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) =>
+                Math.max(1, Math.min(page - 2, totalPages - 4)) + i).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPage(p)}

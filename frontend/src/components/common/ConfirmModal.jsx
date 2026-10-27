@@ -3,19 +3,27 @@ import React, { useEffect, useRef, useState } from 'react';
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   const [isRendered, setIsRendered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
   const cancelBtnRef = useRef(null);
   const confirmBtnRef = useRef(null);
   const previousFocusRef = useRef(null);
+  const closeRef = useRef(onClose);
+  const pendingRef = useRef(pending);
+  closeRef.current = onClose;
+  pendingRef.current = pending;
 
   useEffect(() => {
     if (isOpen) {
+      setError('');
       setIsRendered(true);
+      let second;
       const timer = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+        second = requestAnimationFrame(() => {
           setIsAnimating(true);
         });
       });
-      return () => cancelAnimationFrame(timer);
+      return () => { cancelAnimationFrame(timer); cancelAnimationFrame(second); };
     } else {
       setIsAnimating(false);
       const timer = setTimeout(() => {
@@ -28,10 +36,11 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement;
+      const focusTimer = requestAnimationFrame(() => cancelBtnRef.current?.focus());
 
       const handleKeyDown = (e) => {
-        if (e.key === 'Escape') {
-          onClose();
+        if (e.key === 'Escape' && !pendingRef.current) {
+          closeRef.current();
         }
         if (e.key === 'Tab') {
           const focusable = [cancelBtnRef.current, confirmBtnRef.current].filter(Boolean);
@@ -56,17 +65,27 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
       document.addEventListener('keydown', handleKeyDown);
 
       return () => {
+        cancelAnimationFrame(focusTimer);
         document.removeEventListener('keydown', handleKeyDown);
         if (previousFocusRef.current) {
           previousFocusRef.current.focus();
         }
       };
     }
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
-  const handleConfirm = () => {
-    onConfirm();
-    onClose();
+  const handleConfirm = async () => {
+    if (pending) return;
+    setPending(true);
+    setError('');
+    try {
+      await onConfirm();
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Action failed');
+    } finally {
+      setPending(false);
+    }
   };
 
   if (!isRendered) return null;
@@ -76,7 +95,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
       className={`fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 transition-opacity duration-200 ease-in-out motion-reduce:transition-none ${
         isAnimating ? 'opacity-100' : 'opacity-0'
       }`}
-      onClick={onClose}
+      onClick={() => { if (!pending) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -94,12 +113,14 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
         <p id="modal-desc" className="text-text-secondary text-sm mb-6">
           {message}
         </p>
+        {error && <p role="alert" className="text-error text-sm mb-4">{error}</p>}
         <div className="flex justify-end gap-3">
           <button
             ref={cancelBtnRef}
             type="button"
             className="px-5 py-2 rounded-full font-medium bg-surface-alt text-text-primary hover:bg-border transition-all active:scale-[0.98]"
             onClick={onClose}
+            disabled={pending}
           >
             Cancel
           </button>
@@ -108,8 +129,9 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
             type="button"
             className="px-5 py-2 rounded-full font-medium bg-error text-white hover:bg-red-600 transition-all active:scale-[0.98]"
             onClick={handleConfirm}
+            disabled={pending}
           >
-            Confirm
+            {pending ? 'Working…' : 'Confirm'}
           </button>
         </div>
       </div>

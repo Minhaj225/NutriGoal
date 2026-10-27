@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { mealAPI, studentAPI, apiUtils } from "../services/api";
 import MealCard from "../components/meals/MealCard";
@@ -8,7 +8,11 @@ import { useStaggeredEntry } from "../hooks/useStaggeredEntry";
 import { readSession } from '../services/session';
 
 const Recommendations = () => {
-  const email = readSession()?.email || '';
+  const [session, setSession] = useState(readSession);
+  const email = session?.email || '';
+  const token = session?.token;
+  const request = useRef(null);
+  const successTimer = useRef(null);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,22 +28,36 @@ const Recommendations = () => {
   const gridRef = useStaggeredEntry([recommendations]);
 
   useEffect(() => {
-    if (email) {
-      loadStudentProfile();
-    }
-  }, [email]);
+    const update = () => setSession(readSession());
+    window.addEventListener('adminLoginChange', update);
+    window.addEventListener('storage', update);
+    return () => {
+      window.removeEventListener('adminLoginChange', update);
+      window.removeEventListener('storage', update);
+    };
+  }, []);
 
-  const loadStudentProfile = async () => {
-    try {
-      const response = await studentAPI.getProfile();
-      if (response.success) {
-        setStudent(response.student);
-      }
-    } catch {
-      console.log("Student profile not found");
-      setStudent(null);
-    }
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    request.current?.abort();
+    clearTimeout(successTimer.current);
+    setRecommendations([]);
+    setRecommendationInfo(null);
+    setStudent(null);
+    setError('');
+    setSuccess('');
+    setLoading(false);
+    if (token) studentAPI.getProfile(controller.signal).then(response => {
+      if (!controller.signal.aborted && response.success) setStudent(response.student);
+    }, error => {
+      if (!controller.signal.aborted && error.response?.status !== 404) setError(apiUtils.handleError(error));
+    });
+    return () => {
+      controller.abort();
+      request.current?.abort();
+      clearTimeout(successTimer.current);
+    };
+  }, [token]);
 
   const fetchRecommendations = async () => {
     if (!student) {
@@ -52,12 +70,17 @@ const Recommendations = () => {
     setSuccess("");
     setExcludedUnknownAllergenCount(0);
     setRecommendationInfo(null);
+    setRecommendations([]);
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
 
     try {
-      const response = await mealAPI.getRecommendations(filters);
+      const response = await mealAPI.getRecommendations(filters, controller.signal);
+      if (controller.signal.aborted || readSession()?.token !== token) return;
 
-      if (response.success) {
-        setRecommendations(response.recommendations || []);
+      if (response.success && Array.isArray(response.recommendations)) {
+        setRecommendations(response.recommendations);
         setExcludedUnknownAllergenCount(response.excludedUnknownAllergenCount || 0);
         setRecommendationInfo(response);
 
@@ -68,14 +91,16 @@ const Recommendations = () => {
         setError("Failed to get recommendations");
       }
     } catch (error) {
-      setError(apiUtils.handleError(error));
+      if (!controller.signal.aborted) setError(apiUtils.handleError(error));
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 
   const handleRating = async (mealId, rating) => {
+    if (readSession()?.token !== token) throw new Error('Account changed; reload recommendations');
     const saved = await mealAPI.rateMeal(mealId, rating);
+    if (readSession()?.token !== token) return saved;
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userRating: rating, averageRating: saved.newAverageRating,
@@ -84,13 +109,16 @@ const Recommendations = () => {
       );
       setSuccess(`✅ Rating submitted! You gave ${rating} star${rating !== 1 ? "s" : ""}.`);
       setError("");
-      setTimeout(() => setSuccess(""), 3000);
+      clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(() => setSuccess(""), 3000);
     return saved;
   };
 
   const handleFeedback = async (mealId, liked) => {
     try {
+      if (readSession()?.token !== token) throw new Error('Account changed; reload recommendations');
       const saved = await studentAPI.recordFeedback(mealId, liked);
+      if (readSession()?.token !== token) return saved;
       setRecommendations((prev) =>
         prev.map((meal) =>
           meal._id === mealId ? { ...meal, userFeedback: liked } : meal
@@ -98,7 +126,8 @@ const Recommendations = () => {
       );
       setSuccess(`✅ Feedback recorded! You ${liked ? "liked" : "disliked"} this meal.`);
       setError("");
-      setTimeout(() => setSuccess(""), 3000);
+      clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(() => setSuccess(""), 3000);
       return saved;
     } catch (error) {
       console.error("Failed to record feedback:", error);
@@ -109,6 +138,10 @@ const Recommendations = () => {
   };
 
   const handleFilterChange = (field, value) => {
+    request.current?.abort();
+    setRecommendations([]);
+    setRecommendationInfo(null);
+    setLoading(false);
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 

@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { studentAPI, apiUtils } from "../services/api";
-import LoadingSpinner from "../components/common/LoadingSpinner";
 import ErrorMessage from "../components/common/ErrorMessage";
-import Skeleton from "../components/common/Skeleton";
 import { readSession } from '../services/session';
 
 const StudentForm = () => {
@@ -25,6 +23,9 @@ const StudentForm = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(readSession()?.role === 'student');
+  const [allergyInput, setAllergyInput] = useState('');
+  const edited = useRef(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [existingProfile, setExistingProfile] = useState(null);
@@ -34,23 +35,33 @@ const StudentForm = () => {
   const activityLevels = ["Low", "Moderate", "High"];
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadProfile = async () => {
       if (readSession()?.role === 'student') {
         try {
-          const response = await studentAPI.getProfile();
-          if (response.success && response.student) {
-            setForm(prev => ({ ...prev, ...response.student }));
+          const response = await studentAPI.getProfile(controller.signal);
+          if (!controller.signal.aborted && !edited.current && response.success && response.student) {
+            setForm(prev => ({ ...prev, ...response.student,
+              email: readSession()?.email || prev.email,
+              preferences: { ...prev.preferences, ...response.student.preferences },
+              nutritionGoals: { ...prev.nutritionGoals, ...response.student.nutritionGoals },
+            }));
+            setAllergyInput((response.student.allergies || []).join(', '));
             setExistingProfile(response.student);
           }
         } catch (err) {
-          if (err.response?.status !== 404) setError(apiUtils.handleError(err));
+          if (!controller.signal.aborted && err.response?.status !== 404) setError(apiUtils.handleError(err));
+        } finally {
+          if (!controller.signal.aborted) setProfileLoading(false);
         }
       }
     };
     loadProfile();
+    return () => controller.abort();
   }, []);
 
   const handleChange = (e) => {
+    edited.current = true;
     const { name, value } = e.target;
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -67,6 +78,7 @@ const StudentForm = () => {
   };
 
   const handleArrayChange = (field, value, isChecked) => {
+    edited.current = true;
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setForm(prev => ({
@@ -89,8 +101,8 @@ const StudentForm = () => {
   };
 
   const handleAllergiesChange = (e) => {
-    const allergies = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-    setForm(prev => ({ ...prev, allergies }));
+    edited.current = true;
+    setAllergyInput(e.target.value);
   };
 
   const handleSubmit = async (e) => {
@@ -109,7 +121,7 @@ const StudentForm = () => {
       const response = await studentAPI.createOrUpdateProfile({
         name: form.name,
         preferences: form.preferences,
-        allergies: form.allergies,
+        allergies: allergyInput.split(',').map(value => value.trim()).filter(Boolean),
         nutritionGoals: Object.fromEntries(Object.entries(form.nutritionGoals).map(([key, value]) => [key, Number(value)])),
         activityLevel: form.activityLevel,
       });
@@ -122,14 +134,6 @@ const StudentForm = () => {
       setLoading(false);
     }
   };
-
-  if (loading && !existingProfile) {
-    return (
-      <main className="min-h-screen bg-background py-12 flex justify-center max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8">
-        <Skeleton variant="form" className="mt-8" />
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-background py-24 md:py-32 text-text-primary">
@@ -148,6 +152,7 @@ const StudentForm = () => {
         {/* Form Card */}
         <section className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-border p-6 md:p-8">
 
+          {profileLoading && <p role="status" className="mb-4 text-text-secondary">Loading profile…</p>}
           {error && <ErrorMessage message={error} />}
           {success && (
             <div className="bg-success/10 text-success rounded-lg p-3 mb-6 flex items-center gap-2 text-sm font-medium">
@@ -360,7 +365,7 @@ const StudentForm = () => {
               <input
                 id="allergies"
                 type="text"
-                value={form.allergies.join(', ')}
+                value={allergyInput}
                 onChange={handleAllergiesChange}
                 className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder:text-text-muted"
                 placeholder="Enter allergies separated by commas (e.g., nuts, dairy, soy)"
